@@ -1344,6 +1344,10 @@ body.mode-view .cell-sub-shift {
   animation: fadeIn 0.15s ease-out;
 }
 
+.modal-overlay.hidden {
+  display: none !important;
+}
+
 .modal-content {
   background: var(--bg-card);
   border: 1px solid var(--border-light);

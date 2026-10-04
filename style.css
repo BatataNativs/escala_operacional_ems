@@ -1661,6 +1661,43 @@ body.mode-view .cell-sub-shift {
   line-height: 1.4;
 }
 
+.login-dialog-tabs {
+  display: flex;
+  border-bottom: 1.5px solid #e2e8f0;
+  margin-bottom: 20px;
+}
+
+.login-tab-btn {
+  flex: 1;
+  background: none;
+  border: none;
+  padding: 8px 12px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: #64748b;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1.5px;
+  transition: all 0.15s ease;
+}
+
+.login-tab-btn.active {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+}
+
+.login-screen-wrapper:not(.os-light) .login-dialog-tabs,
+.login-screen-wrapper.os-dark .login-dialog-tabs {
+  border-bottom-color: #1f293d;
+}
+
+.login-screen-wrapper:not(.os-light) .login-tab-btn.active,
+.login-screen-wrapper.os-dark .login-tab-btn.active {
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+}
+
 .login-dialog-form {
   display: flex;
   flex-direction: column;

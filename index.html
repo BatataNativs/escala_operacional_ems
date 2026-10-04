@@ -34,12 +34,28 @@
     <main class="login-dialog-container">
       <div class="login-dialog-card">
         <div class="login-dialog-head">
-          <h2 class="login-dialog-title">Acesso ao Sistema</h2>
-          <p class="login-dialog-desc">Informe suas credenciais para acessar a escala</p>
+          <h2 class="login-dialog-title" id="login-dialog-title">Acesso ao Sistema</h2>
+          <p class="login-dialog-desc" id="login-dialog-desc">Informe suas credenciais para acessar a escala</p>
+        </div>
+
+        <div class="login-dialog-tabs">
+          <button type="button" id="tab-login-signin" class="login-tab-btn active">Entrar</button>
+          <button type="button" id="tab-login-signup" class="login-tab-btn">Criar Conta</button>
         </div>
 
         <form id="form-login-screen" class="login-dialog-form" autocomplete="on">
           <div id="login-screen-error" class="login-error-alert hidden"></div>
+
+          <div class="login-form-group" id="login-group-name" style="display: none;">
+            <label for="login-input-name">Nome / Guerra</label>
+            <div class="login-input-wrapper">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+              <input type="text" id="login-input-name" class="login-input-field" placeholder="Ex: 2S Silva">
+            </div>
+          </div>
 
           <div class="login-form-group">
             <label for="login-input-user">Usuário</label>
@@ -48,7 +64,7 @@
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                 <circle cx="12" cy="7" r="4"></circle>
               </svg>
-              <input type="text" id="login-input-user" class="login-input-field" placeholder="Ex: ems" required autocomplete="username">
+              <input type="text" id="login-input-user" class="login-input-field" placeholder="Digite seu usuário..." required autocomplete="username">
             </div>
           </div>
 
@@ -61,7 +77,7 @@
               </svg>
               <input type="password" id="login-input-pass" class="login-input-field" placeholder="••••••••" required autocomplete="current-password">
             </div>
-            <span class="password-rule-hint">Exige 8 caracteres + caractere especial</span>
+            <span class="password-rule-hint">Exige no mínimo 8 caracteres + caractere especial</span>
           </div>
 
           <button type="submit" id="btn-login-submit" class="btn-login-submit">

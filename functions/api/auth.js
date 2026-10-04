@@ -32,12 +32,6 @@ export async function onRequestGet(context) {
   }
 }
 
-function isValidPassword(password) {
-  if (!password || password.length < 8) return false;
-  const specialCharRegex = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/;
-  return specialCharRegex.test(password);
-}
-
 export async function onRequestPost(context) {
   const { env, request } = context;
   const db = env.DB;
@@ -45,16 +39,6 @@ export async function onRequestPost(context) {
   try {
     const body = await request.json();
     const action = body.action || 'login';
-
-    // Garante que exista pelo menos o usuário ems padrão se a tabela estiver zerada
-    const countCheck = await db.prepare('SELECT COUNT(*) as total FROM users').first();
-    if (!countCheck || countCheck.total === 0) {
-      const defaultHash = await hashPassword('12345678!');
-      await db
-        .prepare('INSERT INTO users (username, password_hash, name, role) VALUES (?, ?, ?, ?)')
-        .bind('ems', defaultHash, 'Operador EMS', 'admin')
-        .run();
-    }
 
     if (action === 'login') {
       const { username, password } = body;
@@ -104,16 +88,6 @@ export async function onRequestPost(context) {
         });
       }
 
-      if (!isValidPassword(password)) {
-        return new Response(JSON.stringify({
-          success: false,
-          error: 'A senha deve conter no mínimo 8 caracteres e pelo menos um caractere especial (ex: !@#$%)'
-        }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-
       const cleanUsername = username.trim().toLowerCase();
       const existing = await db
         .prepare('SELECT id FROM users WHERE username = ?')
@@ -133,9 +107,21 @@ export async function onRequestPost(context) {
         .bind(cleanUsername, passHash, name.trim(), role || 'operator')
         .run();
 
+      const newUser = await db
+        .prepare('SELECT id, username, name, role FROM users WHERE username = ?')
+        .bind(cleanUsername)
+        .first();
+
       return new Response(JSON.stringify({
         success: true,
-        message: 'Operador cadastrado com sucesso!'
+        message: 'Operador cadastrado com sucesso!',
+        user: {
+          id: newUser.id,
+          username: newUser.username,
+          name: newUser.name,
+          role: newUser.role,
+          timestamp: Date.now()
+        }
       }), {
         headers: { 'Content-Type': 'application/json' }
       });

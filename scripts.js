@@ -116,8 +116,14 @@
   const loginScreen = document.getElementById('login-screen');
   const appScreen = document.getElementById('app-screen');
   const formLoginScreen = document.getElementById('form-login-screen');
+  const tabLoginSignin = document.getElementById('tab-login-signin');
+  const tabLoginSignup = document.getElementById('tab-login-signup');
+  const loginGroupName = document.getElementById('login-group-name');
+  const loginInputName = document.getElementById('login-input-name');
   const loginInputUser = document.getElementById('login-input-user');
   const loginInputPass = document.getElementById('login-input-pass');
+  const loginDialogTitle = document.getElementById('login-dialog-title');
+  const loginDialogDesc = document.getElementById('login-dialog-desc');
   const loginScreenError = document.getElementById('login-screen-error');
   const btnLoginSubmit = document.getElementById('btn-login-submit');
 
@@ -792,16 +798,54 @@
     }
   }
 
+  let activeLoginTab = 'login'; // 'login' ou 'register'
+
+  function switchLoginScreenTab(mode) {
+    activeLoginTab = mode;
+    if (loginScreenError) {
+      loginScreenError.classList.add('hidden');
+      loginScreenError.textContent = '';
+    }
+
+    if (mode === 'login') {
+      if (tabLoginSignin) tabLoginSignin.classList.add('active');
+      if (tabLoginSignup) tabLoginSignup.classList.remove('active');
+      if (loginGroupName) loginGroupName.style.display = 'none';
+      if (loginDialogTitle) loginDialogTitle.textContent = 'Acesso ao Sistema';
+      if (loginDialogDesc) loginDialogDesc.textContent = 'Informe suas credenciais para acessar a escala';
+      if (btnLoginSubmit) btnLoginSubmit.innerHTML = '<span>Entrar</span>';
+      if (loginInputUser) loginInputUser.focus();
+    } else {
+      if (tabLoginSignin) tabLoginSignin.classList.remove('active');
+      if (tabLoginSignup) tabLoginSignup.classList.add('active');
+      if (loginGroupName) loginGroupName.style.display = 'flex';
+      if (loginDialogTitle) loginDialogTitle.textContent = 'Criar Nova Conta';
+      if (loginDialogDesc) loginDialogDesc.textContent = 'Cadastre seu usuário para acessar e gerenciar a escala';
+      if (btnLoginSubmit) btnLoginSubmit.innerHTML = '<span>Criar Conta e Acessar</span>';
+      if (loginInputName) loginInputName.focus();
+    }
+  }
+
   async function handleLoginScreenSubmit(e) {
     e.preventDefault();
     if (!loginInputUser || !loginInputPass) return;
 
     const username = loginInputUser.value.trim();
     const password = loginInputPass.value;
+    const name = loginInputName ? loginInputName.value.trim() : '';
 
     if (loginScreenError) {
       loginScreenError.classList.add('hidden');
       loginScreenError.textContent = '';
+    }
+
+    if (activeLoginTab === 'register' && !name) {
+      if (loginScreenError) {
+        loginScreenError.textContent = 'Informe seu nome ou nome de guerra.';
+        loginScreenError.classList.remove('hidden');
+      }
+      if (loginInputName) loginInputName.focus();
+      return;
     }
 
     // Validação da regra: 8 caracteres + caractere especial
@@ -815,22 +859,23 @@
     }
 
     btnLoginSubmit.disabled = true;
-    btnLoginSubmit.innerHTML = '<span>Verificando...</span>';
+    btnLoginSubmit.innerHTML = activeLoginTab === 'login' ? '<span>Verificando...</span>' : '<span>Cadastrando...</span>';
 
     try {
       const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'login',
+          action: activeLoginTab,
           username,
-          password
+          password,
+          name: activeLoginTab === 'register' ? (name || username) : undefined
         })
       });
 
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Usuário ou senha incorretos');
+        throw new Error(json.error || (activeLoginTab === 'login' ? 'Usuário ou senha incorretos' : 'Erro ao cadastrar'));
       }
 
       currentUser = json.user;
@@ -840,12 +885,12 @@
       loadMonthFromCloud(state.year, state.month, state.sector);
     } catch (err) {
       if (loginScreenError) {
-        loginScreenError.textContent = err.message || 'Erro ao realizar login';
+        loginScreenError.textContent = err.message || 'Erro na autenticação';
         loginScreenError.classList.remove('hidden');
       }
     } finally {
       btnLoginSubmit.disabled = false;
-      btnLoginSubmit.innerHTML = '<span>Entrar</span>';
+      btnLoginSubmit.innerHTML = activeLoginTab === 'login' ? '<span>Entrar</span>' : '<span>Criar Conta e Acessar</span>';
     }
   }
 
@@ -1343,6 +1388,12 @@
     // 13. Autenticação e Tela de Login Dedicada
     if (formLoginScreen) {
       formLoginScreen.addEventListener('submit', handleLoginScreenSubmit);
+    }
+    if (tabLoginSignin) {
+      tabLoginSignin.addEventListener('click', () => switchLoginScreenTab('login'));
+    }
+    if (tabLoginSignup) {
+      tabLoginSignup.addEventListener('click', () => switchLoginScreenTab('register'));
     }
     if (btnAuthUser) {
       btnAuthUser.addEventListener('click', handleLogout);

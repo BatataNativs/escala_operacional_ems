@@ -830,7 +830,12 @@
     e.preventDefault();
     if (!loginInputUser || !loginInputPass) return;
 
-    const username = loginInputUser.value.trim();
+    const username = (loginInputUser.value || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9._-]/g, '')
+      .trim();
     const password = loginInputPass.value;
     const name = loginInputName ? loginInputName.value.trim() : '';
 
@@ -1386,6 +1391,23 @@
     }
 
     // 13. Autenticação e Tela de Login Dedicada
+    const sanitizeUserField = (inputEl) => {
+      if (!inputEl) return;
+      inputEl.addEventListener('input', (e) => {
+        const val = e.target.value;
+        const sanitized = val
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9._-]/g, '');
+        if (val !== sanitized) {
+          e.target.value = sanitized;
+        }
+      });
+    };
+    sanitizeUserField(loginInputUser);
+    sanitizeUserField(authUsername);
+
     if (formLoginScreen) {
       formLoginScreen.addEventListener('submit', handleLoginScreenSubmit);
     }

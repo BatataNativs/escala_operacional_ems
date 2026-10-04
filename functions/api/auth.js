@@ -40,19 +40,21 @@ export async function onRequestPost(context) {
     const body = await request.json();
     const action = body.action || 'login';
 
-    // Garante que exista pelo menos o usuário admin se a tabela estiver zerada
-    const countCheck = await db.prepare('SELECT COUNT(*) as total FROM users').first();
-    if (!countCheck || countCheck.total === 0) {
-      const defaultHash = await hashPassword('admin123');
-      await db
-        .prepare('INSERT INTO users (username, password_hash, name, role) VALUES (?, ?, ?, ?)')
-        .bind('admin', defaultHash, 'Administrador do Setor', 'admin')
-        .run();
+    function sanitizeUsername(u) {
+      if (!u) return '';
+      return u
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9._-]/g, '')
+        .trim();
     }
 
     if (action === 'login') {
       const { username, password } = body;
-      if (!username || !password) {
+      const cleanUsername = sanitizeUsername(username);
+
+      if (!cleanUsername || !password) {
         return new Response(JSON.stringify({ success: false, error: 'Informe usuário e senha' }), {
           status: 400,
           headers: { 'Content-Type': 'application/json' }
@@ -62,7 +64,7 @@ export async function onRequestPost(context) {
       const inputHash = await hashPassword(password);
       const user = await db
         .prepare('SELECT id, username, name, role FROM users WHERE username = ? AND password_hash = ?')
-        .bind(username.trim().toLowerCase(), inputHash)
+        .bind(cleanUsername, inputHash)
         .first();
 
       if (!user) {
@@ -72,7 +74,7 @@ export async function onRequestPost(context) {
         });
       }
 
-      // Sessão / Token simples retornado ao cliente
+      // Sessão / Token retornado ao cliente
       const sessionData = {
         id: user.id,
         username: user.username,
@@ -91,14 +93,27 @@ export async function onRequestPost(context) {
 
     } else if (action === 'register') {
       const { username, password, name, role } = body;
-      if (!username || !password || !name) {
+      const cleanUsername = sanitizeUsername(username);
+
+      if (!cleanUsername || !password || !name) {
         return new Response(JSON.stringify({ success: false, error: 'Preencha todos os campos obrigatórios' }), {
           status: 400,
           headers: { 'Content-Type': 'application/json' }
         });
       }
 
-      const cleanUsername = username.trim().toLowerCase();
+      // Validação de senha: min 8 caracteres + caractere especial
+      const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(password);
+      if (password.length < 8 || !hasSpecial) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'A senha deve ter no mínimo 8 caracteres e conter pelo menos um caractere especial (!@#$...).'
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
       const existing = await db
         .prepare('SELECT id FROM users WHERE username = ?')
         .bind(cleanUsername)
@@ -117,9 +132,15 @@ export async function onRequestPost(context) {
         .bind(cleanUsername, passHash, name.trim(), role || 'operator')
         .run();
 
+      const newUser = await db
+        .prepare('SELECT id, username, name, role FROM users WHERE username = ?')
+        .bind(cleanUsername)
+        .first();
+
       return new Response(JSON.stringify({
         success: true,
-        message: 'Operador cadastrado com sucesso!'
+        message: 'Operador cadastrado com sucesso!',
+        user: newUser
       }), {
         headers: { 'Content-Type': 'application/json' }
       });

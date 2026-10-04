@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Escala Operacional</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Cabeçalho da Aplicação / Barra de Ferramentas -->
+  <header class="app-header no-print">
+    <div class="header-left">
+      <div class="app-brand">
+        <div class="brand-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">Escalas Operacionais</h1>
+          <p class="brand-subtitle">Confecção, Acompanhamento e Controle de Turnos</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controles Centrais: Tema, Período e Setor -->
+    <div class="header-center">
+      <button id="btn-theme-toggle" class="btn-theme" title="Alternar Modo Claro / Escuro" aria-label="Alternar tema">
+        <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+        <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
+
+      <div class="control-group">
+        <label for="select-month">Mês:</label>
+        <select id="select-month" class="ctrl-select">
+          <option value="0">JAN - Janeiro</option>
+          <option value="1">FEV - Fevereiro</option>
+          <option value="2">MAR - Março</option>
+          <option value="3">ABR - Abril</option>
+          <option value="4">MAI - Maio</option>
+          <option value="5">JUN - Junho</option>
+          <option value="6">JUL - Julho</option>
+          <option value="7">AGO - Agosto</option>
+          <option value="8">SET - Setembro</option>
+          <option value="9" selected>OUT - Outubro</option>
+          <option value="10">NOV - Novembro</option>
+          <option value="11">DEZ - Dezembro</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label for="input-year">Ano:</label>
+        <input type="number" id="input-year" class="ctrl-input number-input" value="2026" min="2020" max="2035">
+      </div>
+
+      <div class="control-group">
+        <label for="input-sector">Unidade / Setor:</label>
+        <input type="text" id="input-sector" class="ctrl-input sector-input" value="EMS-SP" maxlength="15" placeholder="Setor">
+      </div>
+    </div>
+
+    <!-- Ações e Modos -->
+    <div class="header-right">
+      <div class="view-toggle">
+        <button id="btn-mode-edit" class="toggle-btn active" title="Modo Edição Completa">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 20h9"></path>
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+          </svg>
+          Edição
+        </button>
+        <button id="btn-mode-view" class="toggle-btn" title="Modo Visualização Limpa">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+          Visualização
+        </button>
+      </div>
+
+      <div class="action-buttons">
+        <button id="btn-add-operator" class="btn btn-primary" title="Adicionar Operador">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          Operador
+        </button>
+
+        <button id="btn-print" class="btn btn-secondary" title="Imprimir / Exportar para PDF">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          Imprimir / Exportar
+        </button>
+
+        <div class="dropdown">
+          <button id="btn-more" class="btn btn-icon" title="Mais opções">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="1"></circle>
+              <circle cx="12" cy="5" r="1"></circle>
+              <circle cx="12" cy="19" r="1"></circle>
+            </svg>
+          </button>
+          <div id="dropdown-menu" class="dropdown-content">
+            <a href="#" id="action-export-json">Exportar Backup (JSON)</a>
+            <a href="#" id="action-import-json">Importar Escala (JSON)</a>
+            <input type="file" id="file-input-json" accept=".json" style="display:none">
+            <a href="#" id="action-clear-all" class="text-danger">Limpar Turnos do Mês</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Barra de Acompanhamento Rápido (Filtros, Legendas e Destaques) -->
+  <section class="quick-bar no-print">
+    <div class="legend-chips">
+      <span class="legend-label">Legenda de Turnos:</span>
+      <span class="chip chip-m" title="Manhã"><strong>M</strong> (Manhã | 06h00 às 13h30)</span>
+      <span class="chip chip-t" title="Tarde"><strong>T</strong> (Tarde | 13h30 às 23h00)</span>
+      <span class="chip chip-r" title="RISAER | 24 Horas"><strong>R</strong> (RISAER | 24 horas)</span>
+    </div>
+
+    <div class="quick-helpers">
+      <span id="save-status" class="save-status" title="Salvo automaticamente">Salvo</span>
+    </div>
+  </section>
+
+  <!-- Container Principal da Escala -->
+  <main class="main-content">
+    <div class="sheet-container" id="sheet-container">
+      <div class="year-badge-container">
+        <div class="year-badge" id="year-badge">2026</div>
+        <div class="search-box no-print" title="Destacar operador nas tabelas">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="search-operator" placeholder="Destacar operador...">
+          <button id="btn-clear-search" class="btn-clear" style="display:none">&times;</button>
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <table class="schedule-table" id="schedule-table">
+          <!-- Cabeçalho Renderizado via JS -->
+          <thead id="schedule-thead"></thead>
+          <!-- Corpo da Tabela Renderizado via JS -->
+          <tbody id="schedule-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- Seções Inferiores: Observações (Esquerda) e Carga Horária & Etapas (Direita) -->
+      <div class="bottom-sections">
+        <!-- Seção de Observações (Conforme a planilha) -->
+        <section class="observations-section" id="observations-section">
+          <div class="obs-card">
+            <div class="obs-header">
+              <span class="obs-title">Observações</span>
+              <button id="btn-add-obs" class="btn btn-xs btn-obs no-print" title="Adicionar Linha de Observação">
+                + Adicionar Nota
+              </button>
+            </div>
+            <div class="obs-body" id="obs-list">
+              <!-- Linhas de observações renderizadas dinamicamente -->
+            </div>
+          </div>
+        </section>
+
+        <!-- Seção de Carga Horária e Etapas (Ao lado direito de Observações) -->
+        <section class="stats-section" id="stats-section">
+          <div class="stats-card">
+            <div class="stats-header">
+              <div class="stats-title-group">
+                <span class="stats-title">Carga Horária &amp; Etapas</span>
+                <span class="stats-subtitle">Demonstrativo mensal por operador</span>
+              </div>
+              <div class="stats-badge" id="stats-team-average" title="Média de horas da equipe conforme memorial de cálculo">Média da Equipe: --</div>
+            </div>
+            <div class="stats-table-wrapper">
+              <table class="stats-table" id="stats-table">
+                <thead>
+                  <tr>
+                    <th class="col-stat-leg" title="Legenda do Operador">Leg</th>
+                    <th class="col-stat-op" title="Nome do Operador">Operador</th>
+                    <th class="col-stat-shifts" title="Total de turnos trabalhados (M + T + R)">Total turnos</th>
+                    <th class="col-stat-hours" title="Carga horária acumulada no mês">Carga horária do mês</th>
+                    <th class="col-stat-e5" title="Adicional de R$ 67,50 por turno T (-R$ 13,50 em dia útil)">Etapa 5X</th>
+                    <th class="col-stat-e10" title="Adicional de R$ 135,00 por serviço R (-R$ 13,50 em dia útil)">Etapa 10X</th>
+                  </tr>
+                </thead>
+                <tbody id="stats-tbody">
+                  <!-- Linhas renderizadas via JS -->
+                </tbody>
+                <tfoot id="stats-tfoot">
+                  <!-- Totais gerais -->
+                </tfoot>
+              </table>
+            </div>
+            <div class="stats-memorial-footer" id="stats-memorial-footer">
+              <!-- Memorial de cálculo exibido dinamicamente -->
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <!-- Popover Seletor Rápido de Turno -->
+  <div id="shift-popover" class="shift-popover" style="display: none;">
+    <button class="shift-pop-btn m-btn" data-val="M">M</button>
+    <button class="shift-pop-btn t-btn" data-val="T">T</button>
+    <button class="shift-pop-btn r-btn" data-val="R">R</button>
+    <button class="shift-pop-btn clear-btn" data-val="">Limpar</button>
+  </div>
+
+  <script src="scripts.js"></script>
+</body>
+</html>

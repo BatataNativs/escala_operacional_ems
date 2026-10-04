@@ -1268,7 +1268,8 @@
 
   function initTheme() {
     const savedTheme = localStorage.getItem('escala_theme');
-    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    // Padrão oficial é o tema claro. Só ativa tema escuro se o usuário tiver salvo 'dark' explicitamente.
+    if (savedTheme === 'dark') {
       document.body.classList.add('dark-theme');
     } else {
       document.body.classList.remove('dark-theme');

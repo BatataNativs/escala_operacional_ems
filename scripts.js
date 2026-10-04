@@ -727,10 +727,18 @@
       const pimoVal = (op.pimo !== undefined && op.pimo !== null && op.pimo !== 0) ? op.pimo : '';
       const metVal = (op.instrucaoMet !== undefined && op.instrucaoMet !== null && op.instrucaoMet !== 0) ? op.instrucaoMet : '';
       html += `<tr data-op-id="${escapeHtml(op.id)}">
-        <td><span class="stat-leg-badge">${escapeHtml(op.leg)}</span></td>
-        <td><strong>${escapeHtml(op.name)}</strong></td>
-        <td><input type="number" step="0.5" min="0" class="input-extra-hours input-pimo" value="${pimoVal}" placeholder="0"></td>
-        <td><input type="number" step="0.5" min="0" class="input-extra-hours input-met" value="${metVal}" placeholder="0"></td>
+        <td class="col-op-td">
+          <div class="op-cell-content">
+            <span class="stat-leg-badge">${escapeHtml(op.leg)}</span>
+            <span class="op-modal-name">${escapeHtml(op.name)}</span>
+          </div>
+        </td>
+        <td class="col-hours-td">
+          <input type="number" step="0.5" min="0" max="200" class="input-extra-hours input-pimo" value="${pimoVal}" placeholder="0">
+        </td>
+        <td class="col-hours-td">
+          <input type="number" step="0.5" min="0" max="200" class="input-extra-hours input-met" value="${metVal}" placeholder="0">
+        </td>
       </tr>`;
     });
     extraHoursTbody.innerHTML = html;

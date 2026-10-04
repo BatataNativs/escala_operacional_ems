@@ -1456,8 +1456,13 @@ body.mode-view .cell-sub-shift {
   line-height: 1.45;
 }
 
+.modal-extra-hours-content {
+  max-width: 530px;
+}
+
 .extra-hours-table-wrapper {
-  max-height: 260px;
+  max-height: 280px;
+  overflow-x: auto;
   overflow-y: auto;
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
@@ -1466,38 +1471,82 @@ body.mode-view .cell-sub-shift {
 .extra-hours-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 12.5px;
 }
 
 .extra-hours-table th {
   background: var(--bg-controls);
-  padding: 8px 10px;
-  text-align: left;
-  font-size: 11px;
+  padding: 8px 12px;
+  font-size: 11.5px;
+  font-weight: 700;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border-light);
+  user-select: none;
+}
+
+.extra-hours-table th.col-op-th,
+.extra-hours-table td.col-op-td {
+  text-align: left;
+  padding: 8px 12px;
+}
+
+.extra-hours-table th.col-hours-th,
+.extra-hours-table td.col-hours-td {
+  text-align: center;
+  padding: 8px 8px;
+  width: 135px;
 }
 
 .extra-hours-table td {
-  padding: 8px 10px;
+  padding: 6px 10px;
   border-bottom: 1px solid var(--border-light);
   vertical-align: middle;
 }
 
+.extra-hours-table tbody tr:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+body.dark-theme .extra-hours-table tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.op-cell-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.op-modal-name {
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 190px;
+}
+
+.input-extra-hours,
 .input-extra-hour {
-  width: 80px;
+  width: 68px;
+  max-width: 68px;
   padding: 4px 6px;
   border: 1px solid var(--input-border);
   background: var(--input-bg);
   color: var(--text-main);
   border-radius: var(--radius-sm);
-  font-size: 12px;
-  text-align: right;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
   font-family: 'JetBrains Mono', monospace;
   outline: none;
   transition: all 0.15s;
+  box-sizing: border-box;
+  display: inline-block;
+  margin: 0 auto;
 }
 
+.input-extra-hours:focus,
 .input-extra-hour:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
@@ -1747,6 +1796,28 @@ body.mode-view .cell-sub-shift {
     max-width: 100% !important;
     min-width: 0 !important;
     margin: 0 !important;
+  }
+
+  .modal-extra-hours-content {
+    max-width: 95%;
+  }
+  .extra-hours-table th,
+  .extra-hours-table td {
+    padding: 6px 6px;
+    font-size: 11px;
+  }
+  .extra-hours-table th.col-hours-th,
+  .extra-hours-table td.col-hours-td {
+    width: 105px;
+  }
+  .input-extra-hours {
+    width: 58px;
+    max-width: 58px;
+    font-size: 12px;
+    padding: 3px 4px;
+  }
+  .op-modal-name {
+    max-width: 110px;
   }
 }
 

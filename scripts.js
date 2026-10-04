@@ -112,6 +112,15 @@
   const btnSaveExtraHours = document.getElementById('btn-save-extra-hours');
   const extraHoursTbody = document.getElementById('extra-hours-tbody');
 
+  // Tela de Login Dedicada
+  const loginScreen = document.getElementById('login-screen');
+  const appScreen = document.getElementById('app-screen');
+  const formLoginScreen = document.getElementById('form-login-screen');
+  const loginInputUser = document.getElementById('login-input-user');
+  const loginInputPass = document.getElementById('login-input-pass');
+  const loginScreenError = document.getElementById('login-screen-error');
+  const btnLoginSubmit = document.getElementById('btn-login-submit');
+
   const btnAuthUser = document.getElementById('btn-auth-user');
   const userDisplayName = document.getElementById('user-display-name');
   const modalAuth = document.getElementById('modal-auth');
@@ -723,32 +732,136 @@
   }
 
   // =========================================================================
-  // AUTENTICAÇÃO E CONTROLE DE OPERADOR
+  // AUTENTICAÇÃO E TELA DE LOGIN DEDICADA
   // =========================================================================
   let authMode = 'login'; // 'login' ou 'register'
 
-  function updateAuthUI() {
-    if (!userDisplayName) return;
+  function isValidPasswordRule(password) {
+    if (!password || password.length < 8) return false;
+    const specialCharRegex = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/;
+    return specialCharRegex.test(password);
+  }
+
+  function setupSystemThemeDetection() {
+    const mediaQuery = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+    if (!mediaQuery) return;
+
+    function applyOsTheme() {
+      if (!loginScreen) return;
+      if (mediaQuery.matches) {
+        loginScreen.classList.add('os-dark');
+        loginScreen.classList.remove('os-light');
+      } else {
+        loginScreen.classList.remove('os-dark');
+        loginScreen.classList.add('os-light');
+      }
+    }
+
+    try {
+      mediaQuery.addEventListener('change', applyOsTheme);
+    } catch (e) {
+      if (mediaQuery.addListener) mediaQuery.addListener(applyOsTheme);
+    }
+    applyOsTheme();
+  }
+
+  function updateAuthViewState() {
+    if (!loginScreen || !appScreen) return;
+
     if (currentUser) {
-      userDisplayName.textContent = currentUser.name || currentUser.username;
-      btnAuthUser.title = `Conectado como ${currentUser.name}. Clique para sair.`;
+      // Usuário autenticado: esconde tela de login e exibe aplicação
+      loginScreen.style.display = 'none';
+      appScreen.style.display = 'block';
+      if (userDisplayName) {
+        userDisplayName.textContent = currentUser.name || currentUser.username;
+      }
+      if (btnAuthUser) {
+        btnAuthUser.title = `Conectado como ${currentUser.name || currentUser.username}. Clique para sair.`;
+      }
     } else {
-      userDisplayName.textContent = 'Entrar';
-      btnAuthUser.title = 'Entrar ou cadastrar operador';
+      // Não autenticado: exibe tela de login e oculta aplicação
+      loginScreen.style.display = 'flex';
+      appScreen.style.display = 'none';
+      if (loginScreenError) {
+        loginScreenError.classList.add('hidden');
+        loginScreenError.textContent = '';
+      }
+      setTimeout(() => {
+        if (loginInputUser) loginInputUser.focus();
+      }, 50);
+    }
+  }
+
+  async function handleLoginScreenSubmit(e) {
+    e.preventDefault();
+    if (!loginInputUser || !loginInputPass) return;
+
+    const username = loginInputUser.value.trim();
+    const password = loginInputPass.value;
+
+    if (loginScreenError) {
+      loginScreenError.classList.add('hidden');
+      loginScreenError.textContent = '';
+    }
+
+    // Validação da regra: 8 caracteres + caractere especial
+    if (!isValidPasswordRule(password)) {
+      if (loginScreenError) {
+        loginScreenError.textContent = 'A senha deve conter no mínimo 8 caracteres e pelo menos um caractere especial (ex: !@#$%).';
+        loginScreenError.classList.remove('hidden');
+      }
+      loginInputPass.focus();
+      return;
+    }
+
+    btnLoginSubmit.disabled = true;
+    btnLoginSubmit.innerHTML = '<span>Verificando...</span>';
+
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'login',
+          username,
+          password
+        })
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Usuário ou senha incorretos');
+      }
+
+      currentUser = json.user;
+      localStorage.setItem('escala_current_user', JSON.stringify(currentUser));
+      updateAuthViewState();
+      // Carrega dados da nuvem
+      loadMonthFromCloud(state.year, state.month, state.sector);
+    } catch (err) {
+      if (loginScreenError) {
+        loginScreenError.textContent = err.message || 'Erro ao realizar login';
+        loginScreenError.classList.remove('hidden');
+      }
+    } finally {
+      btnLoginSubmit.disabled = false;
+      btnLoginSubmit.innerHTML = '<span>Entrar</span>';
+    }
+  }
+
+  function handleLogout() {
+    const nome = (currentUser && (currentUser.name || currentUser.username)) || 'operador';
+    if (confirm(`Deseja realmente sair da sessão de ${nome}?`)) {
+      currentUser = null;
+      localStorage.removeItem('escala_current_user');
+      if (loginInputPass) loginInputPass.value = '';
+      updateAuthViewState();
     }
   }
 
   function openAuthModal() {
-    if (currentUser) {
-      if (confirm(`Você está conectado como: ${currentUser.name} (${currentUser.role || 'operador'}).\n\nDeseja encerrar a sessão (Logout)?`)) {
-        currentUser = null;
-        localStorage.removeItem('escala_current_user');
-        updateAuthUI();
-      }
-      return;
-    }
     if (modalAuth) {
-      switchAuthTab('login');
+      switchAuthTab('register');
       if (authErrorMsg) authErrorMsg.classList.add('hidden');
       if (formAuth) formAuth.reset();
       modalAuth.classList.remove('hidden');
@@ -794,8 +907,16 @@
       return;
     }
 
+    if (authMode === 'register' && !isValidPasswordRule(password)) {
+      if (authErrorMsg) {
+        authErrorMsg.textContent = 'A senha deve conter no mínimo 8 caracteres e pelo menos um caractere especial (ex: !@#$%).';
+        authErrorMsg.classList.remove('hidden');
+      }
+      return;
+    }
+
     btnSubmitAuth.disabled = true;
-    btnSubmitAuth.textContent = 'Verificando...';
+    btnSubmitAuth.textContent = 'Processando...';
 
     try {
       const res = await fetch('/api/auth', {
@@ -817,12 +938,11 @@
       if (authMode === 'login') {
         currentUser = json.user;
         localStorage.setItem('escala_current_user', JSON.stringify(currentUser));
-        updateAuthUI();
+        updateAuthViewState();
         closeAuthModal();
       } else {
-        alert('Operador cadastrado com sucesso! Agora você pode entrar com seu usuário e senha.');
-        switchAuthTab('login');
-        authPassword.value = '';
+        alert('Operador cadastrado com sucesso!');
+        closeAuthModal();
       }
     } catch (err) {
       if (authErrorMsg) {
@@ -1220,9 +1340,12 @@
       });
     }
 
-    // 13. Autenticação de Operadores
+    // 13. Autenticação e Tela de Login Dedicada
+    if (formLoginScreen) {
+      formLoginScreen.addEventListener('submit', handleLoginScreenSubmit);
+    }
     if (btnAuthUser) {
-      btnAuthUser.addEventListener('click', openAuthModal);
+      btnAuthUser.addEventListener('click', handleLogout);
     }
     if (btnCloseAuth) {
       btnCloseAuth.addEventListener('click', closeAuthModal);
@@ -1278,9 +1401,11 @@
 
   // Inicialização
   initTheme();
+  setupSystemThemeDetection();
   setupEventListeners();
-  updateAuthUI();
   renderAll();
-  // Carrega a versão mais recente diretamente da nuvem Cloudflare D1
-  loadMonthFromCloud(state.year, state.month, state.sector);
+  updateAuthViewState();
+  if (currentUser) {
+    loadMonthFromCloud(state.year, state.month, state.sector);
+  }
 })();

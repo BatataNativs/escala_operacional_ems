@@ -10,8 +10,77 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Cabeçalho da Aplicação / Barra de Ferramentas -->
-  <header class="app-header no-print">
+  <!-- TELA DE LOGIN (PORTAL DE ENTRADA) -->
+  <div id="login-screen" class="login-screen-wrapper">
+    <!-- Canto Superior Esquerdo: Identidade do Sistema -->
+    <header class="login-brand-header">
+      <div class="login-brand">
+        <div class="brand-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+        </div>
+        <div class="login-brand-text">
+          <h1 class="brand-title">Escalas Operacionais</h1>
+          <p class="brand-subtitle">EMS-SP | Gestão de Turnos</p>
+        </div>
+      </div>
+    </header>
+
+    <!-- Dialog Centralizado de Autenticação -->
+    <main class="login-dialog-container">
+      <div class="login-dialog-card">
+        <div class="login-dialog-head">
+          <h2 class="login-dialog-title">Acesso ao Sistema</h2>
+          <p class="login-dialog-desc">Informe suas credenciais para acessar a escala</p>
+        </div>
+
+        <form id="form-login-screen" class="login-dialog-form" autocomplete="on">
+          <div id="login-screen-error" class="login-error-alert hidden"></div>
+
+          <div class="login-form-group">
+            <label for="login-input-user">Usuário</label>
+            <div class="login-input-wrapper">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+              <input type="text" id="login-input-user" class="login-input-field" placeholder="Ex: ems" required autocomplete="username">
+            </div>
+          </div>
+
+          <div class="login-form-group">
+            <label for="login-input-pass">Senha</label>
+            <div class="login-input-wrapper">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+              <input type="password" id="login-input-pass" class="login-input-field" placeholder="••••••••" required autocomplete="current-password">
+            </div>
+            <span class="password-rule-hint">Exige 8 caracteres + caractere especial</span>
+          </div>
+
+          <button type="submit" id="btn-login-submit" class="btn-login-submit">
+            <span>Entrar</span>
+          </button>
+        </form>
+      </div>
+    </main>
+
+    <!-- Rodapé Discreto -->
+    <footer class="login-footer">
+      Desenvolvido por: Douglas Natividade 2026
+    </footer>
+  </div>
+
+  <!-- APLICAÇÃO PRINCIPAL (EXIBIDA APÓS O LOGIN) -->
+  <div id="app-screen" class="app-screen-wrapper" style="display: none;">
+    <!-- Cabeçalho da Aplicação / Barra de Ferramentas -->
+    <header class="app-header no-print">
     <div class="header-left">
       <div class="app-brand">
         <div class="brand-icon">
@@ -114,12 +183,13 @@
           Imprimir / Exportar
         </button>
 
-        <button id="btn-auth-user" class="btn btn-secondary btn-user-auth no-print" title="Entrar ou gerenciar operador">
+        <button id="btn-auth-user" class="btn btn-secondary btn-user-auth no-print" title="Conta do operador. Clique para sair.">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
             <circle cx="12" cy="7" r="4"></circle>
           </svg>
-          <span id="user-display-name">Entrar</span>
+          <span id="user-display-name">Operador</span>
+          <span class="user-logout-tag">Sair</span>
         </button>
 
         <div class="dropdown">
@@ -315,8 +385,11 @@
           </div>
         </form>
       </div>
-    </div>
   </div>
+  <!-- Fim de #modal-auth -->
+
+  </div>
+  <!-- Fim de #app-screen -->
 
   <script src="scripts.js"></script>
 </body>

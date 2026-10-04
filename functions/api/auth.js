@@ -32,6 +32,12 @@ export async function onRequestGet(context) {
   }
 }
 
+function isValidPassword(password) {
+  if (!password || password.length < 8) return false;
+  const specialCharRegex = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/;
+  return specialCharRegex.test(password);
+}
+
 export async function onRequestPost(context) {
   const { env, request } = context;
   const db = env.DB;
@@ -40,13 +46,13 @@ export async function onRequestPost(context) {
     const body = await request.json();
     const action = body.action || 'login';
 
-    // Garante que exista pelo menos o usuário admin se a tabela estiver zerada
+    // Garante que exista pelo menos o usuário ems padrão se a tabela estiver zerada
     const countCheck = await db.prepare('SELECT COUNT(*) as total FROM users').first();
     if (!countCheck || countCheck.total === 0) {
-      const defaultHash = await hashPassword('admin123');
+      const defaultHash = await hashPassword('12345678!');
       await db
         .prepare('INSERT INTO users (username, password_hash, name, role) VALUES (?, ?, ?, ?)')
-        .bind('admin', defaultHash, 'Administrador do Setor', 'admin')
+        .bind('ems', defaultHash, 'Operador EMS', 'admin')
         .run();
     }
 
@@ -93,6 +99,16 @@ export async function onRequestPost(context) {
       const { username, password, name, role } = body;
       if (!username || !password || !name) {
         return new Response(JSON.stringify({ success: false, error: 'Preencha todos os campos obrigatórios' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      if (!isValidPassword(password)) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'A senha deve conter no mínimo 8 caracteres e pelo menos um caractere especial (ex: !@#$%)'
+        }), {
           status: 400,
           headers: { 'Content-Type': 'application/json' }
         });

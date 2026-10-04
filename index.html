@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261004_1705">
+  <link rel="stylesheet" href="style.css?v=20261004_2045">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self'; connect-src 'self'; img-src 'self' data:;">
 </head>
 <body>
@@ -183,14 +183,6 @@
       </div>
 
       <div class="action-buttons">
-        <button id="btn-add-operator" class="btn btn-primary" title="Adicionar Operador">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-          </svg>
-          Operador
-        </button>
-
         <button id="btn-print" class="btn btn-secondary" title="Imprimir / Exportar para PDF">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="6 9 6 2 18 2 18 9"></polyline>
@@ -208,22 +200,6 @@
           <span id="user-display-name">Operador</span>
           <span class="user-logout-tag">Sair</span>
         </button>
-
-        <div class="dropdown">
-          <button id="btn-more" class="btn btn-icon" title="Mais opções">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="1"></circle>
-              <circle cx="12" cy="5" r="1"></circle>
-              <circle cx="12" cy="19" r="1"></circle>
-            </svg>
-          </button>
-          <div id="dropdown-menu" class="dropdown-content">
-            <a href="#" id="action-export-json">Exportar Backup (JSON)</a>
-            <a href="#" id="action-import-json">Importar Escala (JSON)</a>
-            <input type="file" id="file-input-json" accept=".json" style="display:none">
-            <a href="#" id="action-clear-all" class="text-danger">Limpar Turnos do Mês</a>
-          </div>
-        </div>
       </div>
     </div>
   </header>
@@ -239,6 +215,21 @@
 
     <div class="quick-helpers">
       <span id="save-status" class="save-status" title="Salvo automaticamente">Salvo</span>
+      <div class="dropdown">
+        <button id="btn-more" class="btn btn-icon" title="Mais opções">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="1"></circle>
+            <circle cx="12" cy="5" r="1"></circle>
+            <circle cx="12" cy="19" r="1"></circle>
+          </svg>
+        </button>
+        <div id="dropdown-menu" class="dropdown-content">
+          <a href="#" id="action-export-json">Exportar Backup (JSON)</a>
+          <a href="#" id="action-import-json">Importar Escala (JSON)</a>
+          <input type="file" id="file-input-json" accept=".json" style="display:none">
+          <a href="#" id="action-clear-all" class="text-danger">Limpar Turnos do Mês</a>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -263,6 +254,16 @@
           <!-- Corpo da Tabela Renderizado via JS -->
           <tbody id="schedule-tbody"></tbody>
         </table>
+      </div>
+
+      <!-- Botão Adicionar Operador (+), solto da tabela e abaixo da coluna Leg. -->
+      <div class="add-operator-wrapper no-print">
+        <button id="btn-add-operator" class="btn-add-op-solo" title="Adicionar Operador" aria-label="Adicionar Operador">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+        </button>
       </div>
 
       <!-- Seções Inferiores: Observações (Esquerda) e Carga Horária & Etapas (Direita) -->

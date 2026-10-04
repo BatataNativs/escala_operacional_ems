@@ -462,13 +462,13 @@ body.dark-theme .btn-theme .icon-moon {
   font-weight: 700;
 }
 
-.chip-m { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
-.chip-t { background: #fef3c7; color: #b45309; border-color: #fde68a; }
-.chip-r { background: #dcfce7; color: #14532d; border-color: #86efac; }
+.chip-m { background: #26d92c; color: #050505; border-color: #52e165; }
+.chip-t { background: #e69224; color: #050505; border-color: #f1b46e; }
+.chip-r { background: #094e21; color: #ffffff; border-color: #10511b; }
 
-body.dark-theme .chip-m { background: #0c4a6e; color: #7dd3fc; border-color: #0369a1; }
-body.dark-theme .chip-t { background: #78350f; color: #fde68a; border-color: #b45309; }
-body.dark-theme .chip-r { background: #14532d; color: #86efac; border-color: #166534; }
+body.dark-theme .chip-m { background: #26d92c; color: #050505; border-color: #52e165; }
+body.dark-theme .chip-t { background: #e69224; color: #050505; border-color: #f1b46e; }
+body.dark-theme .chip-r { background: #094e21; color: #ffffff; border-color: #10511b; }
 
 .quick-helpers {
   display: flex;

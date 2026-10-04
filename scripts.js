@@ -112,12 +112,43 @@
   const btnSaveExtraHours = document.getElementById('btn-save-extra-hours');
   const extraHoursTbody = document.getElementById('extra-hours-tbody');
 
+  const btnAuthUser = document.getElementById('btn-auth-user');
+  const userDisplayName = document.getElementById('user-display-name');
+  const modalAuth = document.getElementById('modal-auth');
+  const btnCloseAuth = document.getElementById('btn-close-auth');
+  const tabLogin = document.getElementById('tab-login');
+  const tabRegister = document.getElementById('tab-register');
+  const formAuth = document.getElementById('form-auth');
+  const authErrorMsg = document.getElementById('auth-error-msg');
+  const groupName = document.getElementById('group-name');
+  const authName = document.getElementById('auth-name');
+  const authUsername = document.getElementById('auth-username');
+  const authPassword = document.getElementById('auth-password');
+  const btnSubmitAuth = document.getElementById('btn-submit-auth');
+
+  let currentUser = loadCurrentUser();
+  let syncTimeout = null;
+
+  function loadCurrentUser() {
+    try {
+      const u = localStorage.getItem('escala_current_user');
+      return u ? JSON.parse(u) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function getMonthStorageKey(year, month, sector) {
+    return `escala_${sector || 'EMS-SP'}_${year}_${month}`;
+  }
+
   // =========================================================================
-  // PERSISTÊNCIA & CARREGAMENTO DE DADOS
+  // PERSISTÊNCIA & CARREGAMENTO DE DADOS (CLOUDFLARE D1 + LOCALSTORAGE)
   // =========================================================================
   function loadState() {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const key = getMonthStorageKey(DEFAULT_DATA.year, DEFAULT_DATA.month, DEFAULT_DATA.sector);
+      const saved = localStorage.getItem(key) || localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.operators && Array.isArray(parsed.operators)) {
@@ -125,23 +156,99 @@
         }
       }
     } catch (e) {
-      console.warn('Erro ao carregar dados do localStorage:', e);
+      console.warn('Erro ao carregar dados locais:', e);
     }
     return JSON.parse(JSON.stringify(DEFAULT_DATA));
   }
 
   function saveState() {
     try {
+      const key = getMonthStorageKey(state.year, state.month, state.sector);
+      localStorage.setItem(key, JSON.stringify(state));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      triggerSaveIndicator();
+      triggerSaveIndicator('Salvo local');
+      queueCloudSync();
     } catch (e) {
       console.error('Erro ao salvar no localStorage:', e);
     }
   }
 
-  function triggerSaveIndicator() {
+  function queueCloudSync() {
+    if (syncTimeout) clearTimeout(syncTimeout);
+    triggerSaveIndicator('Sincronizando...', 'cloud-syncing');
+    syncTimeout = setTimeout(() => {
+      syncWithCloud();
+    }, 600);
+  }
+
+  async function syncWithCloud() {
+    try {
+      const res = await fetch('/api/escala', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(state)
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          triggerSaveIndicator('☁️ Nuvem sincronizada', 'cloud-synced');
+          return;
+        }
+      }
+      triggerSaveIndicator('Salvo local');
+    } catch (err) {
+      triggerSaveIndicator('Salvo local');
+    }
+  }
+
+  async function loadMonthFromCloud(year, month, sector) {
+    triggerSaveIndicator('Carregando...', 'cloud-syncing');
+    try {
+      const url = `/api/escala?year=${year}&month=${month}&sector=${encodeURIComponent(sector)}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          state = json.data;
+          const key = getMonthStorageKey(year, month, sector);
+          localStorage.setItem(key, JSON.stringify(state));
+          triggerSaveIndicator('☁️ Nuvem sincronizada', 'cloud-synced');
+          renderAll();
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Não foi possível carregar da nuvem, usando cache local:', err);
+    }
+
+    // Fallback: se não conseguiu carregar da nuvem, tenta o cache local daquele mês
+    const key = getMonthStorageKey(year, month, sector);
+    const localData = localStorage.getItem(key);
+    if (localData) {
+      try {
+        state = JSON.parse(localData);
+      } catch (e) {}
+    } else {
+      // Se não tem local daquele mês, mantém o efetivo de operadores e limpa turnos
+      state.year = year;
+      state.month = month;
+      state.sector = sector;
+      state.operators.forEach(op => {
+        op.shifts = {};
+        op.subShifts = {};
+        op.pimo = 0;
+        op.instrucaoMet = 0;
+      });
+      state.observations = [];
+    }
+    triggerSaveIndicator('Salvo local');
+    renderAll();
+  }
+
+  function triggerSaveIndicator(text = 'Salvo', className = '') {
     if (saveStatus) {
-      saveStatus.textContent = 'Salvo';
+      saveStatus.textContent = text;
+      saveStatus.className = 'save-status ' + className;
       saveStatus.style.opacity = '1';
     }
   }
@@ -616,6 +723,119 @@
   }
 
   // =========================================================================
+  // AUTENTICAÇÃO E CONTROLE DE OPERADOR
+  // =========================================================================
+  let authMode = 'login'; // 'login' ou 'register'
+
+  function updateAuthUI() {
+    if (!userDisplayName) return;
+    if (currentUser) {
+      userDisplayName.textContent = currentUser.name || currentUser.username;
+      btnAuthUser.title = `Conectado como ${currentUser.name}. Clique para sair.`;
+    } else {
+      userDisplayName.textContent = 'Entrar';
+      btnAuthUser.title = 'Entrar ou cadastrar operador';
+    }
+  }
+
+  function openAuthModal() {
+    if (currentUser) {
+      if (confirm(`Você está conectado como: ${currentUser.name} (${currentUser.role || 'operador'}).\n\nDeseja encerrar a sessão (Logout)?`)) {
+        currentUser = null;
+        localStorage.removeItem('escala_current_user');
+        updateAuthUI();
+      }
+      return;
+    }
+    if (modalAuth) {
+      switchAuthTab('login');
+      if (authErrorMsg) authErrorMsg.classList.add('hidden');
+      if (formAuth) formAuth.reset();
+      modalAuth.classList.remove('hidden');
+      if (authUsername) authUsername.focus();
+    }
+  }
+
+  function closeAuthModal() {
+    if (modalAuth) modalAuth.classList.add('hidden');
+  }
+
+  function switchAuthTab(mode) {
+    authMode = mode;
+    const titleEl = document.getElementById('auth-modal-title');
+    if (mode === 'login') {
+      if (tabLogin) tabLogin.classList.add('active');
+      if (tabRegister) tabRegister.classList.remove('active');
+      if (groupName) groupName.style.display = 'none';
+      if (btnSubmitAuth) btnSubmitAuth.textContent = 'Entrar';
+      if (titleEl) titleEl.textContent = 'Entrar no Sistema';
+    } else {
+      if (tabLogin) tabLogin.classList.remove('active');
+      if (tabRegister) tabRegister.classList.add('active');
+      if (groupName) groupName.style.display = 'flex';
+      if (btnSubmitAuth) btnSubmitAuth.textContent = 'Cadastrar Operador';
+      if (titleEl) titleEl.textContent = 'Cadastrar Novo Operador';
+    }
+    if (authErrorMsg) authErrorMsg.classList.add('hidden');
+  }
+
+  async function handleAuthSubmit(e) {
+    e.preventDefault();
+    if (authErrorMsg) authErrorMsg.classList.add('hidden');
+    const username = authUsername.value.trim();
+    const password = authPassword.value;
+    const name = authName ? authName.value.trim() : '';
+
+    if (!username || !password) {
+      if (authErrorMsg) {
+        authErrorMsg.textContent = 'Informe usuário e senha';
+        authErrorMsg.classList.remove('hidden');
+      }
+      return;
+    }
+
+    btnSubmitAuth.disabled = true;
+    btnSubmitAuth.textContent = 'Verificando...';
+
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: authMode,
+          username,
+          password,
+          name: authMode === 'register' ? (name || username) : undefined
+        })
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Erro na autenticação');
+      }
+
+      if (authMode === 'login') {
+        currentUser = json.user;
+        localStorage.setItem('escala_current_user', JSON.stringify(currentUser));
+        updateAuthUI();
+        closeAuthModal();
+      } else {
+        alert('Operador cadastrado com sucesso! Agora você pode entrar com seu usuário e senha.');
+        switchAuthTab('login');
+        authPassword.value = '';
+      }
+    } catch (err) {
+      if (authErrorMsg) {
+        authErrorMsg.textContent = err.message;
+        authErrorMsg.classList.remove('hidden');
+      }
+    } finally {
+      btnSubmitAuth.disabled = false;
+      btnSubmitAuth.textContent = authMode === 'login' ? 'Entrar' : 'Cadastrar Operador';
+    }
+  }
+
+  // =========================================================================
   // EDIÇÃO DE CÉLULAS & ATALHOS DE TECLADO
   // =========================================================================
   function updateCellShift(opId, day, isSub, val) {
@@ -740,17 +960,14 @@
   function setupEventListeners() {
     // 1. Mudança de Mês, Ano e Unidade
     selectMonth.addEventListener('change', (e) => {
-      state.month = parseInt(e.target.value, 10);
-      saveState();
-      renderAll();
+      const newMonth = parseInt(e.target.value, 10);
+      loadMonthFromCloud(state.year, newMonth, state.sector);
     });
 
     inputYear.addEventListener('change', (e) => {
       const y = parseInt(e.target.value, 10);
       if (y >= 2000 && y <= 2100) {
-        state.year = y;
-        saveState();
-        renderAll();
+        loadMonthFromCloud(y, state.month, state.sector);
       }
     });
 
@@ -1002,6 +1219,30 @@
         }
       });
     }
+
+    // 13. Autenticação de Operadores
+    if (btnAuthUser) {
+      btnAuthUser.addEventListener('click', openAuthModal);
+    }
+    if (btnCloseAuth) {
+      btnCloseAuth.addEventListener('click', closeAuthModal);
+    }
+    if (tabLogin) {
+      tabLogin.addEventListener('click', () => switchAuthTab('login'));
+    }
+    if (tabRegister) {
+      tabRegister.addEventListener('click', () => switchAuthTab('register'));
+    }
+    if (formAuth) {
+      formAuth.addEventListener('submit', handleAuthSubmit);
+    }
+    if (modalAuth) {
+      modalAuth.addEventListener('click', (e) => {
+        if (e.target === modalAuth) {
+          closeAuthModal();
+        }
+      });
+    }
   }
 
   // =========================================================================
@@ -1037,5 +1278,8 @@
   // Inicialização
   initTheme();
   setupEventListeners();
+  updateAuthUI();
   renderAll();
+  // Carrega a versão mais recente diretamente da nuvem Cloudflare D1
+  loadMonthFromCloud(state.year, state.month, state.sector);
 })();

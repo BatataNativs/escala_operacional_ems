@@ -114,6 +114,14 @@
           Imprimir / Exportar
         </button>
 
+        <button id="btn-auth-user" class="btn btn-secondary btn-user-auth no-print" title="Entrar ou gerenciar operador">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          <span id="user-display-name">Entrar</span>
+        </button>
+
         <div class="dropdown">
           <button id="btn-more" class="btn btn-icon" title="Mais opções">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -192,7 +200,7 @@
           <div class="stats-card">
             <div class="stats-header">
               <div class="stats-title-group">
-                <span class="stats-title">Carga Horária &amp; Etapas</span>
+                <span class="stats-title">Carga Horária e Etapas</span>
                 <span class="stats-subtitle">Demonstrativo mensal por operador</span>
               </div>
               <div class="stats-header-actions">
@@ -267,6 +275,45 @@
       </div>
       <div class="modal-footer">
         <button id="btn-save-extra-hours" class="btn btn-primary">Salvar e Atualizar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Autenticação (Login / Cadastro de Operador) -->
+  <div id="modal-auth" class="modal-overlay hidden">
+    <div class="modal-content modal-auth-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="auth-modal-title">Acesso Operacional</h3>
+        <button id="btn-close-auth" class="modal-close" title="Fechar">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="auth-tabs">
+          <button id="tab-login" class="auth-tab-btn active">Entrar</button>
+          <button id="tab-register" class="auth-tab-btn">Cadastrar Operador</button>
+        </div>
+
+        <form id="form-auth" class="auth-form">
+          <div id="auth-error-msg" class="auth-error hidden"></div>
+          
+          <div class="form-group" id="group-name" style="display: none;">
+            <label for="auth-name">Nome Completo / Guerra:</label>
+            <input type="text" id="auth-name" class="input-form" placeholder="Ex: 2S Silva">
+          </div>
+
+          <div class="form-group">
+            <label for="auth-username">Usuário / Identificação:</label>
+            <input type="text" id="auth-username" class="input-form" placeholder="Ex: silva" required autocomplete="username">
+          </div>
+
+          <div class="form-group">
+            <label for="auth-password">Senha:</label>
+            <input type="password" id="auth-password" class="input-form" placeholder="••••••••" required autocomplete="current-password">
+          </div>
+
+          <div class="auth-actions">
+            <button type="submit" id="btn-submit-auth" class="btn btn-primary btn-block">Entrar</button>
+          </div>
+        </form>
       </div>
     </div>
   </div>

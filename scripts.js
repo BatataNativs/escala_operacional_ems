@@ -106,6 +106,12 @@
   const statsTeamAverage = document.getElementById('stats-team-average');
   const statsMemorialFooter = document.getElementById('stats-memorial-footer');
 
+  const btnOpenExtraHours = document.getElementById('btn-open-extra-hours');
+  const modalExtraHours = document.getElementById('modal-extra-hours');
+  const btnCloseExtraHours = document.getElementById('btn-close-extra-hours');
+  const btnSaveExtraHours = document.getElementById('btn-save-extra-hours');
+  const extraHoursTbody = document.getElementById('extra-hours-tbody');
+
   // =========================================================================
   // PERSISTÊNCIA & CARREGAMENTO DE DADOS
   // =========================================================================
@@ -239,10 +245,22 @@
                   data-op-id="${op.id}" 
                   spellcheck="false">${escapeHtml(op.leg)}</td>`;
 
-      // Coluna Nome do Operador (X vermelho no início da célula)
+      // Coluna Nome do Operador (Ações de mover e excluir no início esquerdo da célula, longe dos dias 1 e 2)
       html += `<td class="cell-op-name col-name">
         <div class="name-container">
-          <button class="btn-del-op no-print" data-action="del-op" data-op-id="${op.id}" title="Excluir operador">&times;</button>
+          <div class="op-actions-group no-print">
+            <button class="btn-del-op" data-action="del-op" data-op-id="${op.id}" title="Excluir operador">&times;</button>
+            <button class="btn-move-op btn-move-up" data-action="move-up" data-op-id="${op.id}" title="Mover para cima" ${opIndex === 0 ? 'disabled' : ''}>
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="18 15 12 9 6 15"></polyline>
+              </svg>
+            </button>
+            <button class="btn-move-op btn-move-down" data-action="move-down" data-op-id="${op.id}" title="Mover para baixo" ${opIndex === state.operators.length - 1 ? 'disabled' : ''}>
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+          </div>
           <span class="op-name-text" 
                 contenteditable="${currentMode === 'edit'}" 
                 data-action="edit-name" 
@@ -338,13 +356,30 @@
     });
 
     const totalShifts = countM + countT + countR;
-    // Carga Horária: M (7,5h op + 0,25h abertura = 7,75h), T (9,5h op + 0,5h briefing/fechamento = 10,0h), R (24,0h)
-    const totalHours = (countM * 7.75) + (countT * 10.0) + (countR * 24.0);
+
+    // Fórmulas Oficiais da Planilha de Carga Horária:
+    // CTop (Carga Operacional): 7,5h por M e 9,5h por T
+    const cTop = (countM * 7.5) + (countT * 9.5);
+    // Abertura + Briefing + Fechamento: 0,25h por M (15min) e 0,50h por T (15min briefing + 15min fechamento)
+    const briefing = (countM * 0.25) + (countT * 0.5);
+    // RISAER: 24h por turno R
+    const risaerHours = countR * 24.0;
+    // Cargas Adicionais da Planilha Oficial: PIMO e Instrução MET
+    const pimo = parseFloat(op.pimo || 0) || 0;
+    const instrucaoMet = parseFloat(op.instrucaoMet || 0) || 0;
+
+    // Carga Total individual = CTop + Abert/Brief/Fech + RISAER + PIMO + Instrução MET
+    const totalHours = cTop + briefing + risaerHours + pimo + instrucaoMet;
 
     return {
       countM,
       countT,
       countR,
+      cTop,
+      briefing,
+      risaerHours,
+      pimo,
+      instrucaoMet,
       totalShifts,
       totalHours,
       etapa5x,
@@ -371,6 +406,9 @@
     let totalTeamHours = 0;
     let totalTeamE5 = 0;
     let totalTeamE10 = 0;
+    let totalTeamR = 0;
+    let totalTeamPimo = 0;
+    let totalTeamInstrucaoMet = 0;
 
     const searchTerm = (searchOperator ? searchOperator.value : '').trim().toLowerCase();
     let rowsHtml = '';
@@ -381,6 +419,9 @@
       totalTeamHours += stats.totalHours;
       totalTeamE5 += stats.etapa5x;
       totalTeamE10 += stats.etapa10x;
+      totalTeamR += stats.countR;
+      totalTeamPimo += stats.pimo;
+      totalTeamInstrucaoMet += stats.instrucaoMet;
 
       const isMatch = searchTerm ? op.name.toLowerCase().includes(searchTerm) : false;
       const rowDimmed = searchTerm && !isMatch ? ' operator-dimmed' : '';
@@ -392,11 +433,25 @@
       if (stats.countR > 0) breakdown.push(`${stats.countR}R`);
       const breakdownText = breakdown.length ? ` <span class="shifts-breakdown">(${breakdown.join(', ')})</span>` : '';
 
+      const tooltipParts = [
+        `CTop: ${formatHours(stats.cTop)}`,
+        `Abert/Brief/Fech: ${formatHours(stats.briefing)}`
+      ];
+      if (stats.risaerHours > 0) tooltipParts.push(`RISAER: ${formatHours(stats.risaerHours)}`);
+      if (stats.pimo > 0) tooltipParts.push(`PIMO: ${formatHours(stats.pimo)}`);
+      if (stats.instrucaoMet > 0) tooltipParts.push(`MET: ${formatHours(stats.instrucaoMet)}`);
+      tooltipParts.push(`Total: ${formatHours(stats.totalHours)}`);
+      const tooltipText = tooltipParts.join(' | ');
+
+      const extrasTag = (stats.pimo > 0 || stats.instrucaoMet > 0)
+        ? ` <span class="shifts-breakdown" style="font-size:10px;">(+${stats.pimo + stats.instrucaoMet}h extra)</span>`
+        : '';
+
       rowsHtml += `<tr class="row-stat-operator${rowDimmed}${rowMatched}" data-op-id="${op.id}">
         <td class="col-stat-leg"><span class="stat-leg-badge">${escapeHtml(op.leg)}</span></td>
         <td class="col-stat-op">${escapeHtml(op.name)}</td>
         <td class="col-stat-shifts">${stats.totalShifts}${breakdownText}</td>
-        <td class="col-stat-hours" title="${stats.totalHours.toFixed(2)} horas operacionais e administrativas">${formatHours(stats.totalHours)}</td>
+        <td class="col-stat-hours" title="${tooltipText}">${formatHours(stats.totalHours)}${extrasTag}</td>
         <td class="col-stat-e5">${formatCurrency(stats.etapa5x)}</td>
         <td class="col-stat-e10">${formatCurrency(stats.etapa10x)}</td>
       </tr>`;
@@ -404,30 +459,34 @@
 
     statsTbody.innerHTML = rowsHtml;
 
+    // Memorial de cálculo oficial da equipe (Fórmula da Planilha C19):
+    // ((Dias * 17) + (Dias * 0,75) + (Qtd RISAER Equipe * 24) + PIMO Total) / Qtd Operadores + (MET Total / Qtd Operadores)
+    const organHours = (totalDays * 17) + (totalDays * 0.75) + (totalTeamR * 24) + totalTeamPimo;
+    const teamAverageHours = totalOps > 0 ? (organHours / totalOps) + (totalTeamInstrucaoMet / totalOps) : 0;
+    const teamCeilHours = Math.ceil(teamAverageHours);
+    const avgTeamActualHours = totalOps > 0 ? (totalTeamHours / totalOps) : 0;
+
     // Rodapé de Totais Gerais da Equipe
     if (statsTfoot) {
-      const avgTeamHours = totalOps > 0 ? (totalTeamHours / totalOps) : 0;
-
       statsTfoot.innerHTML = `<tr>
         <td class="col-stat-leg"><strong>TOT</strong></td>
         <td class="col-stat-op"><strong>Total / Média Equipe</strong></td>
         <td class="col-stat-shifts"><strong>${totalTeamShifts}</strong></td>
-        <td class="col-stat-hours" title="Média por operador: ${formatHours(avgTeamHours)} (${totalTeamHours.toFixed(2)}h total / ${totalOps} operadores)"><strong>${formatHours(avgTeamHours)}</strong></td>
+        <td class="col-stat-hours" title="Média executada: ${formatHours(avgTeamActualHours)} | Média prevista oficial: ${teamAverageHours.toFixed(2).replace('.', ',')}h (${teamCeilHours}h)"><strong>${formatHours(avgTeamActualHours)}</strong> <span style="font-size:10px; color:var(--text-muted);">(${teamCeilHours}h)</span></td>
         <td class="col-stat-e5"><strong>${formatCurrency(totalTeamE5)}</strong></td>
         <td class="col-stat-e10"><strong>${formatCurrency(totalTeamE10)}</strong></td>
       </tr>`;
     }
 
-    // Memorial de cálculo oficial:
-    // (DiasNoMês * 17h + DiasNoMês * 0,75h) / TotalOperadores
-    const teamAverageHours = totalOps > 0 ? ((totalDays * 17) + (totalDays * 0.75)) / totalOps : 0;
-
     if (statsTeamAverage) {
-      statsTeamAverage.textContent = `Média Prevista: ${teamAverageHours.toFixed(2).replace('.', ',')}h / op`;
+      statsTeamAverage.textContent = `Média: ${teamAverageHours.toFixed(2).replace('.', ',')}h (${teamCeilHours}h) / op`;
     }
 
     if (statsMemorialFooter) {
-      statsMemorialFooter.innerHTML = `<span><strong>Memorial de cálculo da equipe:</strong> (${totalDays} × 17h + ${totalDays} × 0,75h) / ${totalOps} = <strong>${teamAverageHours.toFixed(2).replace('.', ',')}h</strong></span>`;
+      const formulaPimo = totalTeamPimo > 0 ? ` + ${totalTeamPimo}h PIMO` : '';
+      const formulaRisaer = totalTeamR > 0 ? ` + (${totalTeamR}×24h RISAER)` : '';
+      const formulaMet = totalTeamInstrucaoMet > 0 ? ` + (${totalTeamInstrucaoMet}h MET / ${totalOps})` : '';
+      statsMemorialFooter.innerHTML = `<span><strong>Memorial oficial:</strong> [(${totalDays}×17h + ${totalDays}×0,75h${formulaRisaer}${formulaPimo}) / ${totalOps}${formulaMet}] = <strong>${teamAverageHours.toFixed(2).replace('.', ',')}h</strong> &rarr; <strong>${teamCeilHours}h</strong> (arredondar sempre para o inteiro superior)</span>`;
     }
   }
 
@@ -473,6 +532,24 @@
     }
   }
 
+  function moveOperator(opId, direction) {
+    if (currentMode !== 'edit') return;
+    const index = state.operators.findIndex(o => o.id === opId);
+    if (index === -1) return;
+
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= state.operators.length) return;
+
+    // Inverte a ordem no array dos operadores
+    const temp = state.operators[index];
+    state.operators[index] = state.operators[targetIndex];
+    state.operators[targetIndex] = temp;
+
+    saveState();
+    renderBody();
+    renderStatsTable();
+  }
+
   function addObservation() {
     if (currentMode !== 'edit') return;
     state.observations.push('Nova observação de escala;');
@@ -493,6 +570,49 @@
     state.observations.splice(index, 1);
     saveState();
     renderObservations();
+  }
+
+  // =========================================================================
+  // GESTÃO DE CARGAS ADICIONAIS (PIMO & INSTRUÇÃO MET)
+  // =========================================================================
+  function openExtraHoursModal() {
+    if (!modalExtraHours || !extraHoursTbody) return;
+    let html = '';
+    state.operators.forEach(op => {
+      const pimoVal = (op.pimo !== undefined && op.pimo !== null && op.pimo !== 0) ? op.pimo : '';
+      const metVal = (op.instrucaoMet !== undefined && op.instrucaoMet !== null && op.instrucaoMet !== 0) ? op.instrucaoMet : '';
+      html += `<tr data-op-id="${op.id}">
+        <td><span class="stat-leg-badge">${escapeHtml(op.leg)}</span></td>
+        <td><strong>${escapeHtml(op.name)}</strong></td>
+        <td><input type="number" step="0.5" min="0" class="input-extra-hours input-pimo" value="${pimoVal}" placeholder="0"></td>
+        <td><input type="number" step="0.5" min="0" class="input-extra-hours input-met" value="${metVal}" placeholder="0"></td>
+      </tr>`;
+    });
+    extraHoursTbody.innerHTML = html;
+    modalExtraHours.classList.remove('hidden');
+  }
+
+  function closeExtraHoursModal() {
+    if (!modalExtraHours) return;
+    modalExtraHours.classList.add('hidden');
+  }
+
+  function saveExtraHoursModal() {
+    if (!extraHoursTbody) return;
+    const rows = extraHoursTbody.querySelectorAll('tr[data-op-id]');
+    rows.forEach(tr => {
+      const opId = tr.getAttribute('data-op-id');
+      const inputPimo = tr.querySelector('.input-pimo');
+      const inputMet = tr.querySelector('.input-met');
+      const op = state.operators.find(o => o.id === opId);
+      if (op) {
+        op.pimo = inputPimo && inputPimo.value.trim() !== '' ? Math.max(0, parseFloat(inputPimo.value) || 0) : 0;
+        op.instrucaoMet = inputMet && inputMet.value.trim() !== '' ? Math.max(0, parseFloat(inputMet.value) || 0) : 0;
+      }
+    });
+    saveState();
+    renderStatsTable();
+    closeExtraHoursModal();
   }
 
   // =========================================================================
@@ -768,9 +888,23 @@
     // 8. Ações no Corpo da Tabela (Delegation)
     tbody.addEventListener('click', (e) => {
       // Botão de excluir operador (X vermelho)
-      const btnAction = e.target.closest('[data-action="del-op"]');
-      if (btnAction) {
-        deleteOperator(btnAction.getAttribute('data-op-id'));
+      const btnDel = e.target.closest('[data-action="del-op"]');
+      if (btnDel) {
+        deleteOperator(btnDel.getAttribute('data-op-id'));
+        return;
+      }
+
+      // Botão de mover operador para cima
+      const btnUp = e.target.closest('[data-action="move-up"]');
+      if (btnUp && !btnUp.disabled) {
+        moveOperator(btnUp.getAttribute('data-op-id'), -1);
+        return;
+      }
+
+      // Botão de mover operador para baixo
+      const btnDown = e.target.closest('[data-action="move-down"]');
+      if (btnDown && !btnDown.disabled) {
+        moveOperator(btnDown.getAttribute('data-op-id'), 1);
         return;
       }
 
@@ -850,6 +984,24 @@
         deleteObservation(parseInt(btnDel.getAttribute('data-index'), 10));
       }
     });
+
+    // 12. Modal de Cargas Adicionais (PIMO / MET)
+    if (btnOpenExtraHours) {
+      btnOpenExtraHours.addEventListener('click', openExtraHoursModal);
+    }
+    if (btnCloseExtraHours) {
+      btnCloseExtraHours.addEventListener('click', closeExtraHoursModal);
+    }
+    if (btnSaveExtraHours) {
+      btnSaveExtraHours.addEventListener('click', saveExtraHoursModal);
+    }
+    if (modalExtraHours) {
+      modalExtraHours.addEventListener('click', (e) => {
+        if (e.target === modalExtraHours) {
+          closeExtraHoursModal();
+        }
+      });
+    }
   }
 
   // =========================================================================

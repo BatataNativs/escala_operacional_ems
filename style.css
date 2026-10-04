@@ -23,7 +23,7 @@
   --color-obs-text: #0f1011;
 
   /* Cores dos Turnos M, T, R nas Células da Tabela */
-  --color-shift-m-text: #16a74b; /* Cor da letra M (Verde escuro) */
+  --color-shift-m-text: #15803d; /* Cor da letra M (Verde escuro) */
   --color-shift-t-text: #c2410c; /* Cor da letra T (Laranja escuro) */
   --color-shift-r-bg: #14532d;   /* Cor de fundo do R (Verde escuro) */
   --color-shift-r-text: #ffffff; /* Cor da letra R (Branco) */
@@ -462,13 +462,13 @@ body.dark-theme .btn-theme .icon-moon {
   font-weight: 700;
 }
 
-.chip-m { background: #1cd35f; color: #171718; border-color: #16e279; }
-.chip-t { background: #b45309; color: #ffffff; border-color: #f78d23; }
-.chip-r { background: #053d19; color: #ecf2ef; border-color: #0e4522; }
+.chip-m { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
+.chip-t { background: #fef3c7; color: #b45309; border-color: #fde68a; }
+.chip-r { background: #dcfce7; color: #14532d; border-color: #86efac; }
 
-body.dark-theme .chip-m { background: #1cd35f; color: #171718; border-color: #16e279; }
-body.dark-theme .chip-t { background: #b45309; color: #ffffff; border-color: #f78d23; }
-body.dark-theme .chip-r { background: #053d19; color: #ecf2ef; border-color: #0e4522; }
+body.dark-theme .chip-m { background: #0c4a6e; color: #7dd3fc; border-color: #0369a1; }
+body.dark-theme .chip-t { background: #78350f; color: #fde68a; border-color: #b45309; }
+body.dark-theme .chip-r { background: #14532d; color: #86efac; border-color: #166534; }
 
 .quick-helpers {
   display: flex;
@@ -741,41 +741,90 @@ body.dark-theme .chip-r { background: #053d19; color: #ecf2ef; border-color: #0e
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  padding: 0 4px;
 }
 
-/* X vermelho para excluir operador (início esquerdo da célula, visível no hover da célula) */
-.btn-del-op {
+/* Grupo de Ações do Operador (Excluir e Mover) - No canto esquerdo, 100% contido longe dos dias 1 e 2 */
+.op-actions-group {
   position: absolute;
   left: 2px;
   top: 50%;
   transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease;
+  z-index: 2;
+}
+
+.cell-op-name:hover .op-actions-group,
+.row-operator:hover .op-actions-group {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Botão X Vermelho de Excluir Operador */
+.btn-del-op {
   background: none;
   border: none;
-  width: 16px;
-  height: 18px;
+  width: 15px;
+  height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   color: var(--danger);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 800;
   line-height: 1;
   border-radius: 2px;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.15s ease, background 0.1s ease;
-  z-index: 2;
-}
-
-.cell-op-name:hover .btn-del-op {
-  opacity: 1;
-  visibility: visible;
+  transition: background 0.1s ease, color 0.1s ease;
+  padding: 0;
 }
 
 .btn-del-op:hover {
   background: var(--danger);
   color: #ffffff;
+}
+
+/* Botões de Mover Operador para Cima / Baixo */
+.btn-move-op {
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  width: 15px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-main);
+  border-radius: 2px;
+  transition: all 0.1s ease;
+  padding: 0;
+}
+
+body.dark-theme .btn-move-op {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--text-main);
+}
+
+.btn-move-op:hover:not(:disabled) {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+}
+
+.btn-move-op:disabled {
+  opacity: 0.2;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+body.mode-view .op-actions-group {
+  display: none !important;
 }
 
 /* Células de Turno (M, T, N, etc) */
@@ -1042,6 +1091,12 @@ body.dark-theme .obs-row:hover {
   font-weight: 500;
 }
 
+.stats-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .stats-badge {
   background: rgba(255, 255, 255, 0.16);
   border: 1px solid rgba(255, 255, 255, 0.35);
@@ -1274,6 +1329,127 @@ body.mode-view .cell-sub-shift {
 }
 
 /* ==========================================================================
+   MODAL DE CARGAS ADICIONAIS (PIMO & INSTRUÇÃO MET)
+   ========================================================================== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.modal-content {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  max-width: 480px;
+  width: 100%;
+  overflow: hidden;
+}
+
+.modal-header {
+  background: var(--color-col-header);
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-title {
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: #ffffff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 0.15s;
+}
+
+.modal-close:hover {
+  opacity: 1;
+}
+
+.modal-body {
+  padding: 16px 18px;
+}
+
+.modal-desc {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+  line-height: 1.45;
+}
+
+.extra-hours-table-wrapper {
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+}
+
+.extra-hours-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.extra-hours-table th {
+  background: var(--bg-controls);
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 11px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.extra-hours-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-light);
+  vertical-align: middle;
+}
+
+.input-extra-hour {
+  width: 80px;
+  padding: 4px 6px;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+  color: var(--text-main);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  text-align: right;
+  font-family: 'JetBrains Mono', monospace;
+  outline: none;
+  transition: all 0.15s;
+}
+
+.input-extra-hour:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.modal-footer {
+  padding: 10px 18px;
+  background: var(--bg-controls);
+  border-top: 1px solid var(--border-light);
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ==========================================================================
    CONFIGURAÇÃO DE IMPRESSÃO / EXPORTAÇÃO PDF (@media print)
    ========================================================================== */
 @media print {
@@ -1293,6 +1469,8 @@ body.mode-view .cell-sub-shift {
   .app-header,
   .quick-bar,
   .shift-popover,
+  .op-actions-group,
+  .btn-move-op,
   .btn-del-op,
   .btn-add-obs,
   .obs-del-btn {

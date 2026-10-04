@@ -195,7 +195,12 @@
                 <span class="stats-title">Carga Horária &amp; Etapas</span>
                 <span class="stats-subtitle">Demonstrativo mensal por operador</span>
               </div>
-              <div class="stats-badge" id="stats-team-average" title="Média de horas da equipe conforme memorial de cálculo">Média da Equipe: --</div>
+              <div class="stats-header-actions">
+                <button id="btn-open-extra-hours" class="btn btn-xs btn-obs no-print" title="Lançar horas adicionais de PIMO e Instrução MET">
+                  + PIMO / MET
+                </button>
+                <div class="stats-badge" id="stats-team-average" title="Média de horas da equipe conforme memorial de cálculo">Média da Equipe: --</div>
+              </div>
             </div>
             <div class="stats-table-wrapper">
               <table class="stats-table" id="stats-table">
@@ -232,6 +237,38 @@
     <button class="shift-pop-btn t-btn" data-val="T">T</button>
     <button class="shift-pop-btn r-btn" data-val="R">R</button>
     <button class="shift-pop-btn clear-btn" data-val="">Limpar</button>
+  </div>
+
+  <!-- Modal de Configuração de PIMO e Instrução MET -->
+  <div id="modal-extra-hours" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">Lançar Cargas Adicionais (PIMO &amp; Instrução MET)</h3>
+        <button id="btn-close-extra-hours" class="modal-close" title="Fechar">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">
+          Conforme memorial oficial: <strong>PIMO</strong> (projetos/trabalho administrativo) e <strong>Instrução MET</strong> (instruções meteorológicas) somam à carga horária e entram no memorial da equipe.
+        </p>
+        <div class="extra-hours-table-wrapper">
+          <table class="extra-hours-table">
+            <thead>
+              <tr>
+                <th>Operador</th>
+                <th>PIMO (Horas)</th>
+                <th>Instrução MET (Horas)</th>
+              </tr>
+            </thead>
+            <tbody id="extra-hours-tbody">
+              <!-- Linhas renderizadas via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-save-extra-hours" class="btn btn-primary">Salvar e Atualizar</button>
+      </div>
+    </div>
   </div>
 
   <script src="scripts.js"></script>

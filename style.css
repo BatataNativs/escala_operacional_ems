@@ -1757,6 +1757,12 @@ body.mode-view .cell-sub-shift {
   animation: fadeIn 0.2s ease-out;
 }
 
+.hidden,
+.login-error-alert.hidden,
+.login-error-alert:empty {
+  display: none !important;
+}
+
 /* Rodapé Discreto */
 .login-footer {
   text-align: center;
@@ -1898,14 +1904,16 @@ body.mode-view .cell-sub-shift {
 
 /* Tag de Logout no Header */
 .user-logout-tag {
-  font-size: 10px;
-  background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
-  padding: 1px 5px;
-  border-radius: 4px;
-  margin-left: 4px;
-  font-weight: 700;
-  text-transform: uppercase;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: 6px;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.btn-user-auth:hover .user-logout-tag {
+  color: var(--danger);
+  opacity: 1;
 }
 
 .btn-user-auth {

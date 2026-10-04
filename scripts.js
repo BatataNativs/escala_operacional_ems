@@ -304,7 +304,7 @@
   function syncHeaderControls() {
     selectMonth.value = state.month;
     inputYear.value = state.year;
-    inputSector.value = state.sector;
+    inputSector.value = state.sector || 'EMS-SP';
   }
 
   function renderHeader() {
@@ -325,7 +325,7 @@
     // Linha 1: Mês, Unidade e Dias da Semana (QUI, SEX, SÁB, DOM...)
     let tr1 = `<tr>
       <th class="cell-month col-leg">${monthShort}</th>
-      <th class="cell-unit col-name">${escapeHtml(state.sector)}</th>`;
+      <th class="cell-unit col-name" contenteditable="${currentMode === 'edit'}" data-action="edit-sector" spellcheck="false" title="Clique para editar Unidade/Setor">${escapeHtml(state.sector || 'EMS-SP')}</th>`;
     daysInfo.forEach(d => {
       const cls = d.isWeekend ? 'cell-weekend' : 'cell-weekday';
       const todayClass = (isCurrentYearMonth && d.dayNumber === currentDay) ? ' col-today' : '';
@@ -1142,12 +1142,27 @@
     });
 
     inputSector.addEventListener('input', (e) => {
-      state.sector = e.target.value;
+      const val = e.target.value.trim() || 'EMS-SP';
+      state.sector = val;
       saveState();
-      // Atualiza no cabeçalho da tabela
+      // Atualiza no cabeçalho da tabela em tempo real
       const unitTh = thead.querySelector('.cell-unit');
-      if (unitTh) unitTh.textContent = state.sector;
+      if (unitTh) unitTh.textContent = val;
+      queueCloudSync();
     });
+
+    // Edição inline da Unidade / Setor diretamente na célula da tabela
+    thead.addEventListener('blur', (e) => {
+      const el = e.target;
+      if (el && el.getAttribute('data-action') === 'edit-sector') {
+        const val = el.textContent.trim().toUpperCase() || 'EMS-SP';
+        state.sector = val;
+        el.textContent = val;
+        if (inputSector) inputSector.value = val;
+        saveState();
+        queueCloudSync();
+      }
+    }, true);
 
     // 2. Alternador de Modo: Edição vs Visualização
     btnModeEdit.addEventListener('click', () => {

@@ -560,6 +560,9 @@ body.dark-theme .chip-r { background: #094e21; color: #ffffff; border-color: #10
 
 .table-wrapper {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y pinch-zoom;
+  position: relative;
   border: 1px solid var(--border-sheet);
   border-radius: var(--radius-sm);
   background: var(--bg-card);
@@ -592,41 +595,70 @@ body.dark-theme .chip-r { background: #094e21; color: #ffffff; border-color: #10
 
 /* Estilo Central da Tabela da Escala */
 .schedule-table {
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   width: 100%;
   font-size: 13px;
   color: var(--text-main);
   user-select: none;
+  touch-action: pan-x pan-y pinch-zoom;
 }
 
 .schedule-table th, 
 .schedule-table td {
-  border: 1px solid var(--border-cell);
+  border-right: 1px solid var(--border-cell);
+  border-bottom: 1px solid var(--border-cell);
+  border-top: none;
+  border-left: none;
   text-align: center;
   vertical-align: middle;
   padding: 0;
   height: 28px;
   min-height: 28px;
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  box-sizing: border-box;
 }
 
-/* Dimensões das Colunas */
+.schedule-table tr:first-child th {
+  border-top: 1px solid var(--border-cell);
+}
+.schedule-table th:first-child,
+.schedule-table td:first-child {
+  border-left: 1px solid var(--border-cell);
+}
+
+/* Dimensões e Comportamento Fixo (Sticky) das Colunas */
 .col-leg {
   width: 44px;
   min-width: 44px;
   max-width: 44px;
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  box-sizing: border-box;
 }
 
 .col-name {
-  width: 190px;
-  min-width: 180px;
-  max-width: 240px;
+  width: 185px;
+  min-width: 175px;
+  max-width: 230px;
   text-align: left !important;
   padding-left: 8px !important;
   padding-right: 6px !important;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  position: sticky;
+  left: 44px;
+  z-index: 10;
+  box-sizing: border-box;
+  box-shadow: 3px 0 6px -2px rgba(0, 0, 0, 0.16);
+}
+
+/* No cabeçalho (thead), as colunas fixas têm prioridade máxima de z-index */
+thead th.col-leg,
+thead th.col-name {
+  z-index: 25;
 }
 
 .col-day {
@@ -721,6 +753,7 @@ body.dark-theme .chip-r { background: #094e21; color: #ffffff; border-color: #10
 }
 
 .cell-op-name {
+  background-color: var(--color-operator-row) !important;
   font-size: 13px;
   font-weight: 700;
   text-align: center !important;
@@ -1451,6 +1484,345 @@ body.mode-view .cell-sub-shift {
   border-top: 1px solid var(--border-light);
   display: flex;
   justify-content: flex-end;
+}
+
+/* ==========================================================================
+   RESPONSIVIDADE: TELAS MÉDIAS, PEQUENAS E MOBILE (@media screen)
+   ========================================================================== */
+
+/* 1. Telas Médias / Janela Não Maximizada no PC (max-width: 1120px) */
+@media screen and (max-width: 1120px) {
+  .app-header {
+    padding: 10px 16px;
+    gap: 12px;
+  }
+  .header-left {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .header-center {
+    flex-wrap: wrap;
+    flex: 1 1 auto;
+    padding: 8px 12px;
+  }
+  .header-right {
+    flex-wrap: wrap;
+    flex: 1 1 auto;
+    justify-content: flex-start;
+  }
+  .bottom-sections {
+    flex-direction: column;
+  }
+  .observations-section,
+  .stats-section {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+}
+
+/* 2. Celulares e Telas Pequenas em Modo Retrato (max-width: 768px) */
+@media screen and (max-width: 768px) {
+  .app-header {
+    padding: 10px 12px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .header-left {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .app-brand {
+    gap: 10px;
+  }
+
+  .brand-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .brand-title {
+    font-size: 1rem;
+  }
+
+  .brand-subtitle {
+    font-size: 0.7rem;
+  }
+
+  .header-center {
+    width: 100%;
+    padding: 8px 10px;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+  }
+
+  .control-group label {
+    font-size: 0.72rem;
+  }
+
+  .ctrl-select, .ctrl-input {
+    font-size: 0.8rem;
+    padding: 5px 8px;
+  }
+
+  .number-input {
+    width: 70px;
+  }
+
+  .sector-input {
+    width: 85px;
+  }
+
+  .header-right {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .view-toggle {
+    width: 100%;
+    display: flex;
+  }
+
+  .view-toggle .toggle-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 6px 8px;
+    font-size: 0.78rem;
+  }
+
+  .action-buttons {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .action-buttons .btn {
+    padding: 6px 10px;
+    font-size: 0.78rem;
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .action-buttons .btn-icon {
+    flex: 0 0 auto;
+  }
+
+  .quick-bar {
+    padding: 8px 12px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .legend-chips {
+    gap: 6px;
+  }
+
+  .chip {
+    font-size: 0.7rem;
+    padding: 2px 7px;
+  }
+
+  .main-content {
+    padding: 10px 8px 30px;
+  }
+
+  .sheet-container {
+    padding: 8px;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  /* Colunas Fixas em Modo Retrato: MÊS e EMS-SP/Operadores */
+  .col-leg {
+    width: 38px;
+    min-width: 38px;
+    max-width: 38px;
+    font-size: 11px;
+    left: 0;
+  }
+
+  .col-name {
+    width: 140px;
+    min-width: 135px;
+    max-width: 145px;
+    left: 38px;
+    font-size: 11.5px;
+    padding-left: 6px !important;
+  }
+
+  .name-container .op-actions-group {
+    left: 0;
+    gap: 1px;
+  }
+
+  .name-container .op-name-text {
+    font-size: 11.5px;
+  }
+
+  .col-day {
+    width: 30px;
+    min-width: 30px;
+    max-width: 30px;
+  }
+
+  .year-badge-container {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .search-box input {
+    width: 150px;
+  }
+  .search-box input:focus {
+    width: 180px;
+  }
+}
+
+/* 3. Modo Paisagem (Landscape) em Celulares / Tablets (max-height: 600px) */
+@media screen and (orientation: landscape) and (max-height: 600px) {
+  .app-header {
+    padding: 4px 12px;
+    gap: 6px;
+    flex-direction: row;
+    align-items: center;
+    position: relative;
+  }
+
+  .header-left {
+    width: auto;
+  }
+
+  .brand-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .brand-title {
+    font-size: 0.9rem;
+  }
+
+  .brand-subtitle {
+    display: none;
+  }
+
+  .header-center {
+    padding: 3px 8px;
+    gap: 6px 10px;
+  }
+
+  .control-group label {
+    font-size: 0.68rem;
+  }
+
+  .ctrl-select, .ctrl-input {
+    font-size: 0.75rem;
+    padding: 3px 6px;
+  }
+
+  .number-input {
+    width: 65px;
+  }
+
+  .sector-input {
+    width: 75px;
+  }
+
+  .header-right {
+    gap: 6px;
+  }
+
+  .view-toggle .toggle-btn {
+    padding: 4px 8px;
+    font-size: 0.72rem;
+  }
+
+  .action-buttons .btn {
+    padding: 4px 8px;
+    font-size: 0.72rem;
+  }
+
+  .quick-bar {
+    padding: 4px 12px;
+    font-size: 0.72rem;
+  }
+
+  .main-content {
+    padding: 6px 8px 20px;
+  }
+
+  .sheet-container {
+    padding: 6px;
+  }
+
+  /* Tabela Compacta em Modo Paisagem: Visualização Panorâmica Completa */
+  .schedule-table {
+    font-size: 10px;
+  }
+
+  .schedule-table th, 
+  .schedule-table td {
+    height: 22px;
+    min-height: 22px;
+    font-size: 10px;
+  }
+
+  .col-leg {
+    width: 32px;
+    min-width: 32px;
+    max-width: 32px;
+    font-size: 10px;
+    left: 0;
+  }
+
+  .col-name {
+    width: 110px;
+    min-width: 100px;
+    max-width: 120px;
+    font-size: 10px;
+    left: 32px;
+  }
+
+  .name-container .op-name-text {
+    font-size: 10px;
+  }
+
+  .col-day {
+    width: 21px;
+    min-width: 21px;
+    max-width: 22px;
+    font-size: 10px;
+  }
+
+  .cell-shift {
+    font-size: 11px !important;
+  }
+
+  .row-blue-stripe {
+    height: 16px !important;
+  }
+
+  .row-blue-stripe td {
+    height: 16px !important;
+    font-size: 8.5px;
+  }
+
+  .cell-sub-shift {
+    font-size: 10px !important;
+  }
+
+  .year-badge {
+    width: 44px;
+    height: 26px;
+    font-size: 13px;
+  }
 }
 
 /* ==========================================================================

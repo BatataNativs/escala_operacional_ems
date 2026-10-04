@@ -125,6 +125,7 @@
   const loginDialogTitle = document.getElementById('login-dialog-title');
   const loginDialogDesc = document.getElementById('login-dialog-desc');
   const loginScreenError = document.getElementById('login-screen-error');
+  const loginScreenSuccess = document.getElementById('login-screen-success');
   const btnLoginSubmit = document.getElementById('btn-login-submit');
 
   const btnAuthUser = document.getElementById('btn-auth-user');
@@ -792,6 +793,10 @@
         loginScreenError.classList.add('hidden');
         loginScreenError.textContent = '';
       }
+      if (loginScreenSuccess) {
+        loginScreenSuccess.classList.add('hidden');
+        loginScreenSuccess.textContent = '';
+      }
       setTimeout(() => {
         if (loginInputUser) loginInputUser.focus();
       }, 50);
@@ -805,6 +810,10 @@
     if (loginScreenError) {
       loginScreenError.classList.add('hidden');
       loginScreenError.textContent = '';
+    }
+    if (loginScreenSuccess) {
+      loginScreenSuccess.classList.add('hidden');
+      loginScreenSuccess.textContent = '';
     }
 
     if (mode === 'login') {
@@ -820,8 +829,8 @@
       if (tabLoginSignup) tabLoginSignup.classList.add('active');
       if (loginGroupName) loginGroupName.style.display = 'flex';
       if (loginDialogTitle) loginDialogTitle.textContent = 'Criar Nova Conta';
-      if (loginDialogDesc) loginDialogDesc.textContent = 'Cadastre seu usuário para acessar e gerenciar a escala';
-      if (btnLoginSubmit) btnLoginSubmit.innerHTML = '<span>Criar Conta e Acessar</span>';
+      if (loginDialogDesc) loginDialogDesc.textContent = 'Cadastre seu usuário para ter acesso ao sistema';
+      if (btnLoginSubmit) btnLoginSubmit.innerHTML = '<span>Cadastrar Conta</span>';
       if (loginInputName) loginInputName.focus();
     }
   }
@@ -837,6 +846,10 @@
     if (loginScreenError) {
       loginScreenError.classList.add('hidden');
       loginScreenError.textContent = '';
+    }
+    if (loginScreenSuccess) {
+      loginScreenSuccess.classList.add('hidden');
+      loginScreenSuccess.textContent = '';
     }
 
     if (activeLoginTab === 'register' && !name) {
@@ -859,7 +872,7 @@
     }
 
     btnLoginSubmit.disabled = true;
-    btnLoginSubmit.innerHTML = activeLoginTab === 'login' ? '<span>Verificando...</span>' : '<span>Cadastrando...</span>';
+    btnLoginSubmit.innerHTML = activeLoginTab === 'login' ? '<span>Entrando...</span>' : '<span>Cadastrando...</span>';
 
     try {
       const res = await fetch('/api/auth', {
@@ -878,11 +891,26 @@
         throw new Error(json.error || (activeLoginTab === 'login' ? 'Usuário ou senha incorretos' : 'Erro ao cadastrar'));
       }
 
-      currentUser = json.user;
-      localStorage.setItem('escala_current_user', JSON.stringify(currentUser));
-      updateAuthViewState();
-      // Carrega dados da nuvem
-      loadMonthFromCloud(state.year, state.month, state.sector);
+      if (activeLoginTab === 'register') {
+        // NÃO entra automaticamente na escala:
+        // Transfere para a aba de login, preserva o usuário recém-criado, limpa a senha e pede login manual
+        switchLoginScreenTab('login');
+        loginInputUser.value = username;
+        loginInputPass.value = '';
+        if (loginInputName) loginInputName.value = '';
+        if (loginScreenSuccess) {
+          loginScreenSuccess.textContent = 'Conta criada com sucesso! Digite sua senha para entrar.';
+          loginScreenSuccess.classList.remove('hidden');
+        }
+        loginInputPass.focus();
+      } else {
+        // Login realizado com sucesso: entra na aplicação
+        currentUser = json.user;
+        localStorage.setItem('escala_current_user', JSON.stringify(currentUser));
+        updateAuthViewState();
+        // Carrega dados da nuvem
+        loadMonthFromCloud(state.year, state.month, state.sector);
+      }
     } catch (err) {
       if (loginScreenError) {
         loginScreenError.textContent = err.message || 'Erro na autenticação';
@@ -890,7 +918,7 @@
       }
     } finally {
       btnLoginSubmit.disabled = false;
-      btnLoginSubmit.innerHTML = activeLoginTab === 'login' ? '<span>Entrar</span>' : '<span>Criar Conta e Acessar</span>';
+      btnLoginSubmit.innerHTML = activeLoginTab === 'login' ? '<span>Entrar</span>' : '<span>Cadastrar Conta</span>';
     }
   }
 

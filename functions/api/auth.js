@@ -107,21 +107,9 @@ export async function onRequestPost(context) {
         .bind(cleanUsername, passHash, name.trim(), role || 'operator')
         .run();
 
-      const newUser = await db
-        .prepare('SELECT id, username, name, role FROM users WHERE username = ?')
-        .bind(cleanUsername)
-        .first();
-
       return new Response(JSON.stringify({
         success: true,
-        message: 'Operador cadastrado com sucesso!',
-        user: {
-          id: newUser.id,
-          username: newUser.username,
-          name: newUser.name,
-          role: newUser.role,
-          timestamp: Date.now()
-        }
+        message: 'Operador cadastrado com sucesso!'
       }), {
         headers: { 'Content-Type': 'application/json' }
       });

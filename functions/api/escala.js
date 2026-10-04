@@ -1,6 +1,8 @@
 // Endpoint da API Cloudflare Pages Functions para Escala Operacional
 // Rota: /api/escala
 
+import { verifySessionToken } from './auth.js';
+
 export async function onRequestGet(context) {
   const { env, request } = context;
   const db = env.DB;
@@ -9,7 +11,7 @@ export async function onRequestGet(context) {
     const url = new URL(request.url);
     const year = parseInt(url.searchParams.get('year') || '2026', 10);
     const month = parseInt(url.searchParams.get('month') || '9', 10); // 0-11
-    const sector = url.searchParams.get('sector') || 'EMS-SP';
+    const sector = (url.searchParams.get('sector') || 'EMS-SP').trim().slice(0, 50);
     const scheduleId = `${year}-${String(month).padStart(2, '0')}_${sector}`;
 
     // 1. Tenta buscar a escala do mês específico
@@ -46,7 +48,6 @@ export async function onRequestGet(context) {
     // 3. Se a escala do mês ainda não existir, cria a entrada inicial
     let observations = [];
     if (!scheduleRecord) {
-      // Cria a escala vazia para este mês
       const defaultObs = (year === 2026 && month === 9) ? [
         '1S Hiremar: 08T, 13T e 31T;',
         '2S Marisol: 16T, 17M e 22T;',
@@ -132,9 +133,12 @@ export async function onRequestGet(context) {
     });
 
   } catch (error) {
+    const requestId = crypto.randomUUID();
+    console.error(`[ESCALA_GET_ERROR_${requestId}]`, error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message || 'Erro ao carregar escala do banco D1'
+      error: 'Erro ao carregar escala do banco de dados.',
+      requestId
     }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
@@ -147,17 +151,54 @@ export async function onRequestPost(context) {
   const db = env.DB;
 
   try {
+    // -------------------------------------------------------------------------
+    // AUTORIZAÇÃO: Validação de Token de Sessão (Mitigação BOLA/IDOR)
+    // -------------------------------------------------------------------------
+    const authHeader = request.headers.get('Authorization') || '';
+    if (!authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Sessão não autenticada. Faça login para continuar.'
+      }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    const token = authHeader.slice(7).trim();
+    const session = await verifySessionToken(token, env.AUTH_SECRET);
+    if (!session) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Sessão expirada ou inválida. Faça login novamente.'
+      }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    // -------------------------------------------------------------------------
+    // VALIDAÇÃO RÍGIDA DE ENTRADAS (Mitigação Risco 02)
+    // -------------------------------------------------------------------------
     const body = await request.json();
     const { year, month, sector, operators, observations } = body;
 
-    if (year === undefined || month === undefined || !sector || !Array.isArray(operators)) {
+    const parsedYear = parseInt(year, 10);
+    const parsedMonth = parseInt(month, 10);
+
+    if (
+      isNaN(parsedYear) || parsedYear < 2000 || parsedYear > 2100 ||
+      isNaN(parsedMonth) || parsedMonth < 0 || parsedMonth > 11 ||
+      !sector || typeof sector !== 'string' ||
+      !Array.isArray(operators) || operators.length > 200
+    ) {
       return new Response(JSON.stringify({
         success: false,
         error: 'Parâmetros inválidos fornecidos para salvar a escala'
       }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
 
-    const scheduleId = `${year}-${String(month).padStart(2, '0')}_${sector}`;
+    const cleanSector = sector.trim().slice(0, 50);
+    const scheduleId = `${parsedYear}-${String(parsedMonth).padStart(2, '0')}_${cleanSector}`;
+
+    // Sanitiza e valida observações
+    const safeObs = Array.isArray(observations)
+      ? observations.map(o => String(o || '').trim().slice(0, 300)).filter(Boolean)
+      : [];
 
     // 1. Atualiza ou insere o registro da escala
     await db
@@ -168,13 +209,12 @@ export async function onRequestPost(context) {
           observations = excluded.observations,
           updated_at = CURRENT_TIMESTAMP
       `)
-      .bind(scheduleId, year, month, sector, JSON.stringify(observations || []))
+      .bind(scheduleId, parsedYear, parsedMonth, cleanSector, JSON.stringify(safeObs))
       .run();
 
     // 2. Atualiza operadores gerais e turnos deste mês em lote
     const batchStatements = [];
 
-    // Declarações para a tabela global de operadores
     const stmtUpsertOp = db.prepare(`
       INSERT INTO operators (id, leg, name, sector, sort_order, active)
       VALUES (?, ?, ?, ?, ?, 1)
@@ -185,7 +225,6 @@ export async function onRequestPost(context) {
         active = 1
     `);
 
-    // Declarações para os dados mensais
     const stmtUpsertMonthData = db.prepare(`
       INSERT INTO operator_month_data (schedule_id, operator_id, shifts, sub_shifts, pimo, instrucao_met)
       VALUES (?, ?, ?, ?, ?, ?)
@@ -197,14 +236,43 @@ export async function onRequestPost(context) {
     `);
 
     operators.forEach((op, index) => {
-      batchStatements.push(stmtUpsertOp.bind(op.id, op.leg, op.name, sector, index + 1));
+      if (!op || !op.id) return;
+      const cleanOpId = String(op.id).trim().slice(0, 50);
+      const cleanLeg = String(op.leg || '').trim().slice(0, 10);
+      const cleanName = String(op.name || '').trim().slice(0, 100);
+
+      // Validação de formato dos turnos (apenas números como chave, strings curtas como valor)
+      const cleanShifts = {};
+      if (op.shifts && typeof op.shifts === 'object') {
+        for (const [day, shiftVal] of Object.entries(op.shifts)) {
+          const dayNum = parseInt(day, 10);
+          if (dayNum >= 1 && dayNum <= 31 && typeof shiftVal === 'string') {
+            cleanShifts[dayNum] = shiftVal.trim().toUpperCase().slice(0, 10);
+          }
+        }
+      }
+
+      const cleanSubShifts = {};
+      if (op.subShifts && typeof op.subShifts === 'object') {
+        for (const [day, shiftVal] of Object.entries(op.subShifts)) {
+          const dayNum = parseInt(day, 10);
+          if (dayNum >= 1 && dayNum <= 31 && typeof shiftVal === 'string') {
+            cleanSubShifts[dayNum] = shiftVal.trim().toUpperCase().slice(0, 10);
+          }
+        }
+      }
+
+      const pimoVal = Math.max(0, Math.min(200, parseFloat(op.pimo || 0) || 0));
+      const metVal = Math.max(0, Math.min(200, parseFloat(op.instrucaoMet || 0) || 0));
+
+      batchStatements.push(stmtUpsertOp.bind(cleanOpId, cleanLeg, cleanName, cleanSector, index + 1));
       batchStatements.push(stmtUpsertMonthData.bind(
         scheduleId,
-        op.id,
-        JSON.stringify(op.shifts || {}),
-        JSON.stringify(op.subShifts || {}),
-        parseFloat(op.pimo || 0) || 0,
-        parseFloat(op.instrucaoMet || 0) || 0
+        cleanOpId,
+        JSON.stringify(cleanShifts),
+        JSON.stringify(cleanSubShifts),
+        pimoVal,
+        metVal
       ));
     });
 
@@ -214,7 +282,7 @@ export async function onRequestPost(context) {
 
     return new Response(JSON.stringify({
       success: true,
-      message: 'Escala sincronizada com sucesso na nuvem Cloudflare D1',
+      message: 'Escala sincronizada com sucesso',
       scheduleId,
       updated_at: new Date().toISOString()
     }), {
@@ -222,9 +290,12 @@ export async function onRequestPost(context) {
     });
 
   } catch (error) {
+    const requestId = crypto.randomUUID();
+    console.error(`[ESCALA_POST_ERROR_${requestId}]`, error);
     return new Response(JSON.stringify({
       success: false,
-      error: error.message || 'Erro ao salvar escala no Cloudflare D1'
+      error: 'Erro ao salvar escala no banco de dados.',
+      requestId
     }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }

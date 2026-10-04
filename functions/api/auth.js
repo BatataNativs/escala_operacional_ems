@@ -1,40 +1,186 @@
 // Endpoint da API Cloudflare Pages Functions para Autenticação e Usuários
 // Rota: /api/auth
 
-async function hashPassword(password) {
-  const msgUint8 = new TextEncoder().encode(password + ':escala_salt_2026');
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+// Segredo para assinatura de tokens (pode ser sobrescrito via secret AUTH_SECRET no Cloudflare)
+const DEFAULT_SECRET = 'escala_sec_auth_token_key_2026_d1';
+
+// Memória temporária de instâncias para mitigação de força bruta simples
+const loginAttempts = new Map();
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const record = loginAttempts.get(ip) || { count: 0, resetAt: now + 15 * 60 * 1000 };
+  
+  if (now > record.resetAt) {
+    record.count = 0;
+    record.resetAt = now + 15 * 60 * 1000;
+  }
+  
+  if (record.count >= 8) {
+    return false; // Bloqueado por 15 minutos
+  }
+  return true;
 }
 
-export async function onRequestGet(context) {
-  const { env } = context;
-  const db = env.DB;
+function recordFailedAttempt(ip) {
+  const now = Date.now();
+  const record = loginAttempts.get(ip) || { count: 0, resetAt: now + 15 * 60 * 1000 };
+  record.count += 1;
+  loginAttempts.set(ip, record);
+}
+
+function resetAttempts(ip) {
+  loginAttempts.delete(ip);
+}
+
+// ---------------------------------------------------------------------------
+// HASH SEGURO DE SENHAS: PBKDF2 com Salt Randômico e 100.000 iterações (OWASP)
+// ---------------------------------------------------------------------------
+async function hashPassword(password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(password),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits']
+  );
+  
+  const derivedBits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: salt,
+      iterations: 100000,
+      hash: 'SHA-256'
+    },
+    keyMaterial,
+    256
+  );
+
+  const saltHex = Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join('');
+  const hashHex = Array.from(new Uint8Array(derivedBits)).map(b => b.toString(16).padStart(2, '0')).join('');
+  
+  return `pbkdf2:100000:${saltHex}:${hashHex}`;
+}
+
+async function verifyPassword(password, storedHash) {
+  if (!storedHash || !storedHash.startsWith('pbkdf2:')) {
+    return false;
+  }
+  
+  const parts = storedHash.split(':');
+  if (parts.length !== 4) return false;
+  
+  const iterations = parseInt(parts[1], 10);
+  const saltHex = parts[2];
+  const originalHashHex = parts[3];
+  
+  const saltBytes = new Uint8Array(saltHex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+  const enc = new TextEncoder();
+  
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(password),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits']
+  );
+  
+  const derivedBits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: saltBytes,
+      iterations: iterations,
+      hash: 'SHA-256'
+    },
+    keyMaterial,
+    256
+  );
+  
+  const candidateHashHex = Array.from(new Uint8Array(derivedBits)).map(b => b.toString(16).padStart(2, '0')).join('');
+  return candidateHashHex === originalHashHex;
+}
+
+// ---------------------------------------------------------------------------
+// GERAÇÃO DE TOKEN DE SESSÃO ASSINADO (HMAC-SHA256 - Validade 7 dias)
+// ---------------------------------------------------------------------------
+export async function createSessionToken(user, secret) {
+  const enc = new TextEncoder();
+  const payload = {
+    id: user.id,
+    username: user.username,
+    name: user.name,
+    role: user.role,
+    exp: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7 dias
+  };
+
+  const payloadBase64 = btoa(JSON.stringify(payload));
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret || DEFAULT_SECRET),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+
+  const sigBuffer = await crypto.subtle.sign('HMAC', key, enc.encode(payloadBase64));
+  const sigHex = Array.from(new Uint8Array(sigBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+
+  return `${payloadBase64}.${sigHex}`;
+}
+
+export async function verifySessionToken(token, secret) {
+  if (!token || typeof token !== 'string') return null;
+  const parts = token.split('.');
+  if (parts.length !== 2) return null;
+
+  const [payloadBase64, sigHex] = parts;
+  const enc = new TextEncoder();
 
   try {
-    // Retorna a lista de operadores cadastrados no sistema
-    const { results: users } = await db
-      .prepare('SELECT id, username, name, role, created_at FROM users ORDER BY name ASC')
-      .all();
+    const key = await crypto.subtle.importKey(
+      'raw',
+      enc.encode(secret || DEFAULT_SECRET),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify']
+    );
 
-    return new Response(JSON.stringify({
-      success: true,
-      users: users || []
-    }), {
-      headers: { 'Content-Type': 'application/json' }
-    });
-  } catch (err) {
-    return new Response(JSON.stringify({ success: false, error: err.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    const sigBytes = new Uint8Array(sigHex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+    const isValid = await crypto.subtle.verify('HMAC', key, sigBytes, enc.encode(payloadBase64));
+    
+    if (!isValid) return null;
+
+    const payload = JSON.parse(atob(payloadBase64));
+    if (Date.now() > payload.exp) {
+      return null; // Expirado
+    }
+    return payload;
+  } catch (e) {
+    return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// HANDLERS HTTP
+// ---------------------------------------------------------------------------
+
+// Bloqueia GET para evitar enumeração de rotas e usuários
+export async function onRequestGet() {
+  return new Response(JSON.stringify({
+    success: false,
+    error: 'Método não permitido'
+  }), {
+    status: 405,
+    headers: { 'Content-Type': 'application/json' }
+  });
 }
 
 export async function onRequestPost(context) {
   const { env, request } = context;
   const db = env.DB;
+  const clientIp = request.headers.get('cf-connecting-ip') || 'unknown';
 
   try {
     const body = await request.json();
@@ -42,7 +188,7 @@ export async function onRequestPost(context) {
 
     function sanitizeUsername(u) {
       if (!u) return '';
-      return u
+      return String(u)
         .toLowerCase()
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
@@ -51,6 +197,16 @@ export async function onRequestPost(context) {
     }
 
     if (action === 'login') {
+      if (!checkRateLimit(clientIp)) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Muitas tentativas incorretas. Aguarde alguns minutos antes de tentar novamente.'
+        }), {
+          status: 429,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
       const { username, password } = body;
       const cleanUsername = sanitizeUsername(username);
 
@@ -61,41 +217,52 @@ export async function onRequestPost(context) {
         });
       }
 
-      const inputHash = await hashPassword(password);
       const user = await db
-        .prepare('SELECT id, username, name, role FROM users WHERE username = ? AND password_hash = ?')
-        .bind(cleanUsername, inputHash)
+        .prepare('SELECT id, username, password_hash, name, role FROM users WHERE username = ?')
+        .bind(cleanUsername)
         .first();
 
       if (!user) {
+        recordFailedAttempt(clientIp);
         return new Response(JSON.stringify({ success: false, error: 'Usuário ou senha incorretos' }), {
           status: 401,
           headers: { 'Content-Type': 'application/json' }
         });
       }
 
-      // Sessão / Token retornado ao cliente
-      const sessionData = {
-        id: user.id,
-        username: user.username,
-        name: user.name,
-        role: user.role,
-        timestamp: Date.now()
-      };
+      const passwordMatches = await verifyPassword(password, user.password_hash);
+      if (!passwordMatches) {
+        recordFailedAttempt(clientIp);
+        return new Response(JSON.stringify({ success: false, error: 'Usuário ou senha incorretos' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      resetAttempts(clientIp);
+
+      const token = await createSessionToken(user, env.AUTH_SECRET);
 
       return new Response(JSON.stringify({
         success: true,
         message: 'Login realizado com sucesso',
-        user: sessionData
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          name: user.name,
+          role: user.role
+        }
       }), {
         headers: { 'Content-Type': 'application/json' }
       });
 
     } else if (action === 'register') {
-      const { username, password, name, role } = body;
+      const { username, password, name } = body;
       const cleanUsername = sanitizeUsername(username);
+      const cleanName = (typeof name === 'string' ? name.trim() : '');
 
-      if (!cleanUsername || !password || !name) {
+      if (!cleanUsername || !password || !cleanName) {
         return new Response(JSON.stringify({ success: false, error: 'Preencha todos os campos obrigatórios' }), {
           status: 400,
           headers: { 'Content-Type': 'application/json' }
@@ -126,10 +293,15 @@ export async function onRequestPost(context) {
         });
       }
 
+      // Regra de Bootstrap: Primeiro usuário registrado no sistema torna-se 'admin'.
+      // Qualquer registro posterior será estritamente 'operator' (bloqueia injeção de role: 'admin').
+      const countResult = await db.prepare('SELECT COUNT(*) as total FROM users').first();
+      const assignedRole = (countResult && countResult.total === 0) ? 'admin' : 'operator';
+
       const passHash = await hashPassword(password);
       await db
         .prepare('INSERT INTO users (username, password_hash, name, role) VALUES (?, ?, ?, ?)')
-        .bind(cleanUsername, passHash, name.trim(), role || 'operator')
+        .bind(cleanUsername, passHash, cleanName, assignedRole)
         .run();
 
       const newUser = await db
@@ -137,9 +309,12 @@ export async function onRequestPost(context) {
         .bind(cleanUsername)
         .first();
 
+      const token = await createSessionToken(newUser, env.AUTH_SECRET);
+
       return new Response(JSON.stringify({
         success: true,
-        message: 'Operador cadastrado com sucesso!',
+        message: 'Cadastro realizado com sucesso!',
+        token,
         user: newUser
       }), {
         headers: { 'Content-Type': 'application/json' }
@@ -152,9 +327,12 @@ export async function onRequestPost(context) {
     });
 
   } catch (err) {
+    const requestId = crypto.randomUUID();
+    console.error(`[AUTH_ERROR_${requestId}]`, err);
     return new Response(JSON.stringify({
       success: false,
-      error: err.message || 'Erro no servidor de autenticação'
+      error: 'Ocorreu um erro interno. Tente novamente mais tarde.',
+      requestId
     }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }

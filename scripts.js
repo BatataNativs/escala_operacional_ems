@@ -196,13 +196,34 @@
     }, 600);
   }
 
+  function handleSessionExpired() {
+    currentUser = null;
+    localStorage.removeItem('escala_current_user');
+    updateAuthViewState();
+    alert('Sua sessão expirou ou é inválida. Por favor, faça login novamente.');
+  }
+
   async function syncWithCloud() {
+    if (!currentUser || !currentUser.token) {
+      triggerSaveIndicator('Salvo local');
+      return;
+    }
+
     try {
       const res = await fetch('/api/escala', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentUser.token}`
+        },
         body: JSON.stringify(state)
       });
+
+      if (res.status === 401) {
+        handleSessionExpired();
+        return;
+      }
+
       if (res.ok) {
         const json = await res.json();
         if (json.success) {
@@ -357,27 +378,29 @@
       const rowDimmed = searchTerm && !isMatch ? ' operator-dimmed' : '';
       const rowMatched = isMatch ? ' operator-matched' : '';
 
+      const safeOpId = escapeHtml(op.id);
+
       // 1. Linha Amarela Principal do Operador
-      html += `<tr class="row-operator${rowDimmed}${rowMatched}" data-op-id="${op.id}">`;
+      html += `<tr class="row-operator${rowDimmed}${rowMatched}" data-op-id="${safeOpId}">`;
       
       // Coluna Legenda (A, B, C...)
       html += `<td class="cell-leg-val col-leg" 
                   contenteditable="${currentMode === 'edit'}" 
                   data-action="edit-leg" 
-                  data-op-id="${op.id}" 
+                  data-op-id="${safeOpId}" 
                   spellcheck="false">${escapeHtml(op.leg)}</td>`;
 
       // Coluna Nome do Operador (Ações de mover e excluir no início esquerdo da célula, longe dos dias 1 e 2)
       html += `<td class="cell-op-name col-name">
         <div class="name-container">
           <div class="op-actions-group no-print">
-            <button class="btn-del-op" data-action="del-op" data-op-id="${op.id}" title="Excluir operador">&times;</button>
-            <button class="btn-move-op btn-move-up" data-action="move-up" data-op-id="${op.id}" title="Mover para cima" ${opIndex === 0 ? 'disabled' : ''}>
+            <button class="btn-del-op" data-action="del-op" data-op-id="${safeOpId}" title="Excluir operador">&times;</button>
+            <button class="btn-move-op btn-move-up" data-action="move-up" data-op-id="${safeOpId}" title="Mover para cima" ${opIndex === 0 ? 'disabled' : ''}>
               <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="18 15 12 9 6 15"></polyline>
               </svg>
             </button>
-            <button class="btn-move-op btn-move-down" data-action="move-down" data-op-id="${op.id}" title="Mover para baixo" ${opIndex === state.operators.length - 1 ? 'disabled' : ''}>
+            <button class="btn-move-op btn-move-down" data-action="move-down" data-op-id="${safeOpId}" title="Mover para baixo" ${opIndex === state.operators.length - 1 ? 'disabled' : ''}>
               <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="6 9 12 15 18 9"></polyline>
               </svg>
@@ -386,7 +409,7 @@
           <span class="op-name-text" 
                 contenteditable="${currentMode === 'edit'}" 
                 data-action="edit-name" 
-                data-op-id="${op.id}" 
+                data-op-id="${safeOpId}" 
                 spellcheck="false">${escapeHtml(op.name)}</span>
         </div>
       </td>`;
@@ -397,7 +420,7 @@
         html += `<td class="cell-shift col-day" 
                     tabindex="${currentMode === 'edit' ? 0 : -1}" 
                     data-val="${escapeHtml(val)}" 
-                    data-op-id="${op.id}" 
+                    data-op-id="${safeOpId}" 
                     data-day="${d.dayNumber}" 
                     data-is-sub="false">${escapeHtml(val)}</td>`;
       });
@@ -405,7 +428,7 @@
 
       // 2. Linha Azul Intermediária apenas entre operadores (não após o último operador)
       if (opIndex < state.operators.length - 1) {
-        html += `<tr class="row-blue-stripe${rowDimmed}" data-sub-op-id="${op.id}">`;
+        html += `<tr class="row-blue-stripe${rowDimmed}" data-sub-op-id="${safeOpId}">`;
         html += `<td class="cell-blank-sub col-leg"></td>`;
         html += `<td class="cell-sub-name col-name"></td>`;
         daysInfo.forEach(d => {
@@ -413,7 +436,7 @@
           html += `<td class="cell-sub-shift col-day" 
                       tabindex="${currentMode === 'edit' ? 0 : -1}" 
                       data-val="${escapeHtml(subVal)}" 
-                      data-op-id="${op.id}" 
+                      data-op-id="${safeOpId}" 
                       data-day="${d.dayNumber}" 
                       data-is-sub="true">${escapeHtml(subVal)}</td>`;
         });
@@ -569,7 +592,7 @@
         ? ` <span class="shifts-breakdown" style="font-size:10px;">(+${stats.pimo + stats.instrucaoMet}h extra)</span>`
         : '';
 
-      rowsHtml += `<tr class="row-stat-operator${rowDimmed}${rowMatched}" data-op-id="${op.id}">
+      rowsHtml += `<tr class="row-stat-operator${rowDimmed}${rowMatched}" data-op-id="${escapeHtml(op.id)}">
         <td class="col-stat-leg"><span class="stat-leg-badge">${escapeHtml(op.leg)}</span></td>
         <td class="col-stat-op">${escapeHtml(op.name)}</td>
         <td class="col-stat-shifts">${stats.totalShifts}${breakdownText}</td>
@@ -703,7 +726,7 @@
     state.operators.forEach(op => {
       const pimoVal = (op.pimo !== undefined && op.pimo !== null && op.pimo !== 0) ? op.pimo : '';
       const metVal = (op.instrucaoMet !== undefined && op.instrucaoMet !== null && op.instrucaoMet !== 0) ? op.instrucaoMet : '';
-      html += `<tr data-op-id="${op.id}">
+      html += `<tr data-op-id="${escapeHtml(op.id)}">
         <td><span class="stat-leg-badge">${escapeHtml(op.leg)}</span></td>
         <td><strong>${escapeHtml(op.name)}</strong></td>
         <td><input type="number" step="0.5" min="0" class="input-extra-hours input-pimo" value="${pimoVal}" placeholder="0"></td>
@@ -883,7 +906,7 @@
         throw new Error(json.error || (activeLoginTab === 'login' ? 'Usuário ou senha incorretos' : 'Erro ao cadastrar'));
       }
 
-      currentUser = json.user;
+      currentUser = { ...json.user, token: json.token };
       localStorage.setItem('escala_current_user', JSON.stringify(currentUser));
       updateAuthViewState();
       // Carrega dados da nuvem
@@ -986,7 +1009,7 @@
       }
 
       if (authMode === 'login') {
-        currentUser = json.user;
+        currentUser = { ...json.user, token: json.token };
         localStorage.setItem('escala_current_user', JSON.stringify(currentUser));
         updateAuthViewState();
         closeAuthModal();
@@ -1243,15 +1266,76 @@
       const reader = new FileReader();
       reader.onload = (evt) => {
         try {
-          const imported = JSON.parse(evt.target.result);
-          if (imported.operators && Array.isArray(imported.operators)) {
-            state = imported;
-            saveState();
-            renderAll();
-            alert('Escala importada com sucesso!');
-          } else {
+          const raw = JSON.parse(evt.target.result);
+          if (!raw || typeof raw !== 'object' || !Array.isArray(raw.operators)) {
             alert('Formato de arquivo JSON inválido.');
+            return;
           }
+
+          const parsedYear = parseInt(raw.year, 10);
+          const parsedMonth = parseInt(raw.month, 10);
+          const cleanYear = (!isNaN(parsedYear) && parsedYear >= 2000 && parsedYear <= 2100) ? parsedYear : state.year;
+          const cleanMonth = (!isNaN(parsedMonth) && parsedMonth >= 0 && parsedMonth <= 11) ? parsedMonth : state.month;
+          const cleanSector = String(raw.sector || state.sector || 'EMS-SP').trim().slice(0, 50);
+
+          const sanitizedOperators = [];
+          for (const op of raw.operators) {
+            if (!op || typeof op !== 'object') continue;
+            const opId = String(op.id || ('op-' + Math.random().toString(36).slice(2, 9))).trim().slice(0, 50);
+            const opLeg = String(op.leg || '').trim().slice(0, 10);
+            const opName = String(op.name || '').trim().slice(0, 100);
+
+            const shifts = {};
+            if (op.shifts && typeof op.shifts === 'object') {
+              for (const [day, val] of Object.entries(op.shifts)) {
+                const dayNum = parseInt(day, 10);
+                if (dayNum >= 1 && dayNum <= 31 && typeof val === 'string') {
+                  shifts[dayNum] = val.trim().toUpperCase().slice(0, 10);
+                }
+              }
+            }
+
+            const subShifts = {};
+            if (op.subShifts && typeof op.subShifts === 'object') {
+              for (const [day, val] of Object.entries(op.subShifts)) {
+                const dayNum = parseInt(day, 10);
+                if (dayNum >= 1 && dayNum <= 31 && typeof val === 'string') {
+                  subShifts[dayNum] = val.trim().toUpperCase().slice(0, 10);
+                }
+              }
+            }
+
+            sanitizedOperators.push({
+              id: opId,
+              leg: opLeg,
+              name: opName,
+              shifts: shifts,
+              subShifts: subShifts,
+              pimo: Math.max(0, Math.min(200, parseFloat(op.pimo || 0) || 0)),
+              instrucaoMet: Math.max(0, Math.min(200, parseFloat(op.instrucaoMet || 0) || 0))
+            });
+          }
+
+          if (sanitizedOperators.length === 0) {
+            alert('O arquivo JSON não contém operadores válidos.');
+            return;
+          }
+
+          const sanitizedObservations = Array.isArray(raw.observations)
+            ? raw.observations.map(o => String(o || '').trim().slice(0, 300)).filter(Boolean)
+            : [];
+
+          state = {
+            year: cleanYear,
+            month: cleanMonth,
+            sector: cleanSector,
+            operators: sanitizedOperators,
+            observations: sanitizedObservations
+          };
+
+          saveState();
+          renderAll();
+          alert('Escala importada com sucesso!');
         } catch (err) {
           alert('Erro ao processar arquivo JSON.');
         }

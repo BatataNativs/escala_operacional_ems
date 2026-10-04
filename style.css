@@ -1515,8 +1515,8 @@ body.mode-view .cell-sub-shift {
    RESPONSIVIDADE: TELAS MÉDIAS, PEQUENAS E MOBILE (@media screen)
    ========================================================================== */
 
-/* 1. Telas Médias / Janela Não Maximizada no PC (max-width: 1120px) */
-@media screen and (max-width: 1120px) {
+/* 1. Telas Médias / Janela Não Maximizada no PC (max-width: 1200px) */
+@media screen and (max-width: 1200px) {
   .app-header {
     padding: 10px 16px;
     gap: 12px;
@@ -1542,10 +1542,12 @@ body.mode-view .cell-sub-shift {
   }
   .observations-section,
   .stats-section {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    margin: 0;
+    flex: none !important;
+    height: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
   }
 }
 
@@ -1739,10 +1741,12 @@ body.mode-view .cell-sub-shift {
   }
   .observations-section,
   .stats-section {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    margin: 0;
+    flex: none !important;
+    height: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
   }
 }
 

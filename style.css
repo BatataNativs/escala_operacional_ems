@@ -1794,23 +1794,9 @@ body.mode-view .cell-sub-shift {
   animation: fadeIn 0.2s ease-out;
 }
 
-.login-success-alert {
-  padding: 10px 12px;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  color: #15803d;
-  font-size: 0.82rem;
-  font-weight: 500;
-  border-radius: 8px;
-  line-height: 1.35;
-  animation: fadeIn 0.2s ease-out;
-}
-
 .hidden,
 .login-error-alert.hidden,
-.login-error-alert:empty,
-.login-success-alert.hidden,
-.login-success-alert:empty {
+.login-error-alert:empty {
   display: none !important;
 }
 
@@ -1885,12 +1871,6 @@ body.mode-view .cell-sub-shift {
     color: #fca5a5;
   }
 
-  .login-screen-wrapper:not(.os-light) .login-success-alert {
-    background: #052e16;
-    border-color: #14532d;
-    color: #86efac;
-  }
-
   .login-screen-wrapper:not(.os-light) .login-footer {
     color: #64748b;
   }
@@ -1953,12 +1933,6 @@ body.mode-view .cell-sub-shift {
   background: #450a0a;
   border-color: #7f1d1d;
   color: #fca5a5;
-}
-
-.login-screen-wrapper.os-dark .login-success-alert {
-  background: #052e16;
-  border-color: #14532d;
-  color: #86efac;
 }
 
 .login-screen-wrapper.os-dark .login-footer {

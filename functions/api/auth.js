@@ -40,6 +40,16 @@ export async function onRequestPost(context) {
     const body = await request.json();
     const action = body.action || 'login';
 
+    // Garante que exista pelo menos o usuário admin se a tabela estiver zerada
+    const countCheck = await db.prepare('SELECT COUNT(*) as total FROM users').first();
+    if (!countCheck || countCheck.total === 0) {
+      const defaultHash = await hashPassword('admin123');
+      await db
+        .prepare('INSERT INTO users (username, password_hash, name, role) VALUES (?, ?, ?, ?)')
+        .bind('admin', defaultHash, 'Administrador do Setor', 'admin')
+        .run();
+    }
+
     if (action === 'login') {
       const { username, password } = body;
       if (!username || !password) {

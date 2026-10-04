@@ -985,16 +985,16 @@ body.dark-theme .operator-matched td {
    ========================================================================== */
 .bottom-sections {
   display: flex;
-  gap: 20px;
+  gap: 16px;
   align-items: flex-start;
-  margin-top: 18px;
+  margin-top: 16px;
   flex-wrap: wrap;
 }
 
 .observations-section {
   flex: 1 1 360px;
   max-width: 440px;
-  margin-top: 0;
+  margin: 0;
 }
 
 .obs-card {
@@ -1537,12 +1537,15 @@ body.mode-view .cell-sub-shift {
   }
   .bottom-sections {
     flex-direction: column;
+    margin-top: 16px;
+    gap: 16px;
   }
   .observations-section,
   .stats-section {
     width: 100%;
     max-width: 100%;
     min-width: 0;
+    margin: 0;
   }
 }
 
@@ -1728,6 +1731,19 @@ body.mode-view .cell-sub-shift {
   .search-box input:focus {
     width: 180px;
   }
+
+  .bottom-sections {
+    flex-direction: column;
+    margin-top: 14px;
+    gap: 14px;
+  }
+  .observations-section,
+  .stats-section {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin: 0;
+  }
 }
 
 /* 3. Modo Paisagem (Landscape) em Celulares / Tablets (max-height: 600px) */
@@ -1883,6 +1899,11 @@ body.mode-view .cell-sub-shift {
     width: 44px;
     height: 26px;
     font-size: 13px;
+  }
+
+  .bottom-sections {
+    margin-top: 10px;
+    gap: 10px;
   }
 }
 

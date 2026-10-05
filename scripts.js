@@ -514,22 +514,12 @@
       });
       html += `</tr>`;
 
-      // 2. Linha Azul Intermediária apenas entre operadores (não após o último operador)
+      // 2. Linha Separadora Contínua apenas entre operadores (não aceita inserção de turnos)
       if (opIndex < state.operators.length - 1) {
         html += `<tr class="row-blue-stripe${rowDimmed}" data-sub-op-id="${safeOpId}">`;
-        html += `<td class="cell-blank-sub col-leg"></td>`;
-        html += `<td class="cell-sub-name col-name"></td>`;
-        daysInfo.forEach(d => {
-          const subVal = (op.subShifts && op.subShifts[d.dayNumber]) || '';
-          const weekendClass = d.isWeekend ? ' col-weekend' : '';
-          const todayClass = (isCurrentYearMonth && d.dayNumber === currentDay) ? ' col-today' : '';
-          html += `<td class="cell-sub-shift col-day${weekendClass}${todayClass}" 
-                      tabindex="${currentMode === 'edit' ? 0 : -1}" 
-                      data-val="${escapeHtml(subVal)}" 
-                      data-op-id="${safeOpId}" 
-                      data-day="${d.dayNumber}" 
-                      data-is-sub="true">${escapeHtml(subVal)}</td>`;
-        });
+        html += `<td class="cell-blank-sub col-leg" aria-hidden="true"></td>`;
+        html += `<td class="cell-sub-name col-name" aria-hidden="true"></td>`;
+        html += `<td class="cell-separator-days" colspan="${daysInfo.length}" aria-hidden="true"></td>`;
         html += `</tr>`;
       }
     });
@@ -574,18 +564,6 @@
       } else if (val === 'R') {
         countR++;
         // Etapa 10X: R$ 135,00 no fim de semana; R$ 121,50 em dia útil (-R$ 13,50)
-        etapa10x += d.isWeekend ? 135.0 : 121.5;
-      }
-
-      // SubTurno (faixa secundária) se houver
-      const subVal = (op.subShifts && op.subShifts[d.dayNumber]) || '';
-      if (subVal === 'M') {
-        countM++;
-      } else if (subVal === 'T') {
-        countT++;
-        etapa5x += d.isWeekend ? 67.5 : 54.0;
-      } else if (subVal === 'R') {
-        countR++;
         etapa10x += d.isWeekend ? 135.0 : 121.5;
       }
     });
@@ -1129,27 +1107,19 @@
   // =========================================================================
   // EDIÇÃO DE CÉLULAS & ATALHOS DE TECLADO
   // =========================================================================
-  function updateCellShift(opId, day, isSub, val) {
+  function updateCellShift(opId, day, val) {
     const op = state.operators.find(o => o.id === opId);
     if (!op) return;
 
     val = val.trim().toUpperCase();
 
-    if (isSub) {
-      if (!op.subShifts) op.subShifts = {};
-      if (val) op.subShifts[day] = val;
-      else delete op.subShifts[day];
-    } else {
-      if (val) op.shifts[day] = val;
-      else delete op.shifts[day];
-    }
+    if (val) op.shifts[day] = val;
+    else delete op.shifts[day];
 
     saveState();
 
     // Atualiza apenas a célula específica no DOM para performance instantânea
-    const selector = isSub 
-      ? `[data-sub-op-id="${opId}"] [data-day="${day}"]` 
-      : `[data-op-id="${opId}"] [data-day="${day}"]`;
+    const selector = `[data-op-id="${opId}"] [data-day="${day}"]`;
     const td = tbody.querySelector(selector);
     if (td) {
       td.textContent = val;
@@ -1186,13 +1156,12 @@
     const key = e.key;
     const opId = td.getAttribute('data-op-id');
     const day = parseInt(td.getAttribute('data-day'), 10);
-    const isSub = td.getAttribute('data-is-sub') === 'true';
 
     // Teclas diretas de turnos: M, T, N, F, etc.
     if (key.length === 1 && /^[a-zA-Z0-9*]$/.test(key)) {
       e.preventDefault();
       const val = key.toUpperCase();
-      updateCellShift(opId, day, isSub, val);
+      updateCellShift(opId, day, val);
       // Avança para o próximo dia automaticamente
       moveFocusCell(td, 0, 1);
       return;
@@ -1201,7 +1170,7 @@
     // Teclas para limpar: Backspace, Delete ou Espaço
     if (key === 'Backspace' || key === 'Delete' || key === ' ') {
       e.preventDefault();
-      updateCellShift(opId, day, isSub, '');
+      updateCellShift(opId, day, '');
       return;
     }
 
@@ -1233,7 +1202,6 @@
 
   function moveFocusCell(currentTd, rowDelta, colDelta) {
     const tr = currentTd.parentElement;
-    const isSub = currentTd.getAttribute('data-is-sub') === 'true';
     const currentDay = parseInt(currentTd.getAttribute('data-day'), 10);
     const totalDays = getDaysInMonth(state.year, state.month);
 
@@ -1244,12 +1212,12 @@
         if (nextCell) nextCell.focus();
       }
     } else if (rowDelta !== 0) {
-      // Movimento vertical (entre operadores e sublinhas)
-      const allRows = Array.from(tbody.querySelectorAll('tr'));
-      const currentRowIdx = allRows.indexOf(tr);
-      const targetRowIdx = currentRowIdx + (rowDelta * (isSub ? 2 : 2));
-      if (targetRowIdx >= 0 && targetRowIdx < allRows.length) {
-        const targetRow = allRows[targetRowIdx];
+      // Movimento vertical (navega diretamente entre linhas de operadores, pulando a linha separadora)
+      const opRows = Array.from(tbody.querySelectorAll('tr.row-operator'));
+      const currentOpIdx = opRows.indexOf(tr);
+      const targetOpIdx = currentOpIdx + rowDelta;
+      if (targetOpIdx >= 0 && targetOpIdx < opRows.length) {
+        const targetRow = opRows[targetOpIdx];
         const targetCell = targetRow.querySelector(`[data-day="${currentDay}"]`);
         if (targetCell) targetCell.focus();
       }
@@ -1355,7 +1323,7 @@
       if (!dropdownMenu.contains(e.target) && e.target !== btnMore) {
         dropdownMenu.classList.remove('show');
       }
-      if (!shiftPopover.contains(e.target) && !e.target.closest('.cell-shift') && !e.target.closest('.cell-sub-shift')) {
+      if (!shiftPopover.contains(e.target) && !e.target.closest('.cell-shift')) {
         closeShiftPopover();
       }
       // Se clicou fora da célula do nome, da legenda e dos botões de ação:
@@ -1652,7 +1620,7 @@
       }
 
       // Clique nas células de turno
-      const cell = e.target.closest('.cell-shift, .cell-sub-shift');
+      const cell = e.target.closest('.cell-shift');
       if (cell) {
         if (currentMode === 'edit') {
           cell.focus();
@@ -1708,7 +1676,7 @@
       }
 
       // Navegação por teclado nas células de turno
-      const cell = e.target.closest('.cell-shift, .cell-sub-shift');
+      const cell = e.target.closest('.cell-shift');
       if (cell) {
         handleCellKeyDown(e, cell);
       }
@@ -1743,9 +1711,8 @@
       const val = btn.getAttribute('data-val');
       const opId = activeCell.getAttribute('data-op-id');
       const day = parseInt(activeCell.getAttribute('data-day'), 10);
-      const isSub = activeCell.getAttribute('data-is-sub') === 'true';
 
-      updateCellShift(opId, day, isSub, val);
+      updateCellShift(opId, day, val);
       closeShiftPopover();
     });
 

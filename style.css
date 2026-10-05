@@ -13,12 +13,13 @@
   --color-col-header: #1e293b;
   --color-days-header: #2563eb;
   --color-operator-row: #fefce8; /* Creme suave de alta legibilidade, sem cansar a vista */
-  --color-operator-row-hover: #fef08a; /* Destaque caloroso e suave ao passar o cursor */
+  --color-operator-row-hover: #edcd6383; /* Destaque caloroso e suave ao passar o cursor */
   --color-operator-row-text: #0f172a; /* Texto de alto contraste e máxima nitidez */
   --color-leg-cell: #1e40af; /* Badge azul royal executivo */
   --color-leg-cell-text: #ffffff;
-  --color-blue-stripe: #f1f5f9; /* Separador sutil e moderno entre operadores */
+  --color-blue-stripe: #c5c8cc; /* Linha contínua entre operadores */
   --color-blue-stripe-text: #64748b;
+  --color-today-line: #2563eb; /* Linhas/bordas especiais demarcadoras do dia atual */
   --color-obs-header: #347cda;
   --color-obs-header-text: #ffffff; /* Cor do texto do header de Observações */
   --color-obs-body: #edf0e9;
@@ -79,8 +80,9 @@ body.dark-theme {
   --color-operator-row-text: #f8fafc; /* Texto claro de alto contraste */
   --color-leg-cell: #1d4ed8; /* Badge azul cobalto no dark mode */
   --color-leg-cell-text: #ffffff;
-  --color-blue-stripe: #0b0f19; /* Faixa separadora escura e elegante */
+  --color-blue-stripe: #3b486a; /* Faixa separadora no modo escuro */
   --color-blue-stripe-text: #94a3b8;
+  --color-today-line: #38bdf8; /* Linhas/bordas especiais demarcadoras do dia atual no modo escuro */
   --color-obs-header: #0f147c;
   --color-obs-header-text: #ffffff; /* Cor do texto do header de Observações no modo escuro */
   --color-obs-body: #131924;
@@ -968,13 +970,14 @@ body.dark-theme thead th.col-name {
   background-color: #1e3a8a !important;
   color: #fbbf24 !important;
   font-weight: 800 !important;
+  box-shadow: inset 3px 0 0 0 var(--color-today-line), inset -3px 0 0 0 var(--color-today-line) !important;
 }
 
 .cell-day-num.col-today {
   background-color: #1d4ed8 !important;
   color: #fbbf24 !important;
   font-weight: 800 !important;
-  box-shadow: inset 0 -3px 0 0 #f59e0b !important;
+  box-shadow: inset 3px 0 0 0 var(--color-today-line), inset -3px 0 0 0 var(--color-today-line), inset 0 -3px 0 0 #fbbf24 !important;
 }
 
 /* ==========================================================================
@@ -1003,30 +1006,24 @@ body.dark-theme thead th.col-name {
   filter: brightness(1.1);
 }
 
-.row-operator:hover .cell-shift[data-val="M"],
-.row-operator:hover .cell-sub-shift[data-val="M"] {
+.row-operator:hover .cell-shift[data-val="M"] {
   background-color: var(--color-shift-m-bg) !important;
   filter: brightness(0.97);
 }
 
-.row-operator:hover .cell-shift[data-val="T"],
-.row-operator:hover .cell-sub-shift[data-val="T"] {
+.row-operator:hover .cell-shift[data-val="T"] {
   background-color: var(--color-shift-t-bg) !important;
   filter: brightness(0.97);
 }
 
-.row-operator:hover .cell-shift[data-val="R"],
-.row-operator:hover .cell-sub-shift[data-val="R"] {
+.row-operator:hover .cell-shift[data-val="R"] {
   background-color: var(--color-shift-r-bg) !important;
   filter: brightness(1.05);
 }
 
 body.dark-theme .row-operator:hover .cell-shift[data-val="M"],
-body.dark-theme .row-operator:hover .cell-sub-shift[data-val="M"],
 body.dark-theme .row-operator:hover .cell-shift[data-val="T"],
-body.dark-theme .row-operator:hover .cell-sub-shift[data-val="T"],
-body.dark-theme .row-operator:hover .cell-shift[data-val="R"],
-body.dark-theme .row-operator:hover .cell-sub-shift[data-val="R"] {
+body.dark-theme .row-operator:hover .cell-shift[data-val="R"] {
   filter: brightness(1.15);
 }
 
@@ -1259,57 +1256,56 @@ body.mode-view .leg-move-arrows {
   position: relative;
 }
 
-.cell-shift:hover,
-.cell-sub-shift:hover {
+.cell-shift:hover {
   box-shadow: inset 0 0 0 1.5px var(--primary) !important;
 }
 
-.cell-shift:not([data-val="M"]):not([data-val="T"]):not([data-val="R"]):hover,
-.cell-sub-shift:not([data-val="M"]):not([data-val="T"]):not([data-val="R"]):hover {
+.cell-shift:not([data-val="M"]):not([data-val="T"]):not([data-val="R"]):hover {
   background-color: rgba(37, 99, 235, 0.12) !important;
 }
 
-.cell-shift:focus,
-.cell-sub-shift:focus {
+.cell-shift:focus {
   outline: none;
   box-shadow: inset 0 0 0 2px var(--primary) !important;
   z-index: 2;
 }
 
 /* Destaque e Preenchimento Completo das Células de Turno (M, T, R) - Idêntico aos botões da legenda */
-.cell-shift[data-val="M"],
-.cell-sub-shift[data-val="M"] {
+.cell-shift[data-val="M"] {
   background-color: var(--color-shift-m-bg) !important;
   color: var(--color-shift-m-text) !important;
   font-weight: 800 !important;
 }
 
-.cell-shift[data-val="T"],
-.cell-sub-shift[data-val="T"] {
+.cell-shift[data-val="T"] {
   background-color: var(--color-shift-t-bg) !important;
   color: var(--color-shift-t-text) !important;
   font-weight: 800 !important;
 }
 
-.cell-shift[data-val="R"],
-.cell-sub-shift[data-val="R"] {
+.cell-shift[data-val="R"] {
   background-color: var(--color-shift-r-bg) !important;
   color: var(--color-shift-r-text) !important;
   font-weight: 800 !important;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
 }
 
-/* Faixa Intermediária de Sub-Turnos */
+/* Linha Separadora Contínua Entre Operadores (Não aceita turnos nem divisões) */
 .row-blue-stripe {
   background-color: var(--color-blue-stripe);
-  height: 20px !important;
+  height: 14px !important;
+  pointer-events: none;
+  user-select: none;
 }
 
 .row-blue-stripe td {
-  background-color: var(--color-blue-stripe);
-  height: 20px !important;
-  color: var(--color-blue-stripe-text);
-  font-size: 11px;
+  background-color: var(--color-blue-stripe) !important;
+  height: 14px !important;
+  padding: 0;
+  border-right: 1px solid var(--border-cell);
+  border-bottom: 1px solid var(--border-cell);
+  pointer-events: none;
+  user-select: none;
 }
 
 .row-blue-stripe .cell-blank-sub {
@@ -1324,12 +1320,12 @@ body.mode-view .leg-move-arrows {
   border-bottom: 1px solid var(--border-cell);
 }
 
-.cell-sub-shift {
-  cursor: pointer;
-  font-size: 12px !important;
-  font-family: 'JetBrains Mono', monospace !important;
-  font-weight: 700 !important;
-  transition: background-color 0.12s ease, filter 0.12s ease;
+.row-blue-stripe .cell-separator-days {
+  background-color: var(--color-blue-stripe) !important;
+  border-right: 1px solid var(--border-cell);
+  border-bottom: 1px solid var(--border-cell);
+  padding: 0;
+  pointer-events: none;
 }
 
 /* Finais de Semana no Corpo da Tabela (apenas dias vazios mantêm a guia vertical suave) */
@@ -1337,22 +1333,35 @@ body.mode-view .leg-move-arrows {
   background-color: rgba(79, 70, 229, 0.04);
 }
 
-.cell-sub-shift.col-weekend:not([data-val="M"]):not([data-val="T"]):not([data-val="R"]) {
-  background-color: rgba(79, 70, 229, 0.06);
-}
-
 body.dark-theme .cell-shift.col-weekend:not([data-val="M"]):not([data-val="T"]):not([data-val="R"]) {
   background-color: rgba(99, 102, 241, 0.07);
 }
 
-body.dark-theme .cell-sub-shift.col-weekend:not([data-val="M"]):not([data-val="T"]):not([data-val="R"]) {
-  background-color: rgba(99, 102, 241, 0.09);
+/* Hoje no Corpo da Tabela: Linhas/Bordas Especiais Entre o Dia Anterior e Posterior */
+.cell-shift.col-today {
+  box-shadow: inset 3px 0 0 0 var(--color-today-line), inset -3px 0 0 0 var(--color-today-line) !important;
+  position: relative;
+  z-index: 3;
 }
 
-/* Hoje no Corpo da Tabela */
-.cell-shift.col-today,
-.cell-sub-shift.col-today {
-  box-shadow: inset 1.5px 0 0 0 #f59e0b, inset -1.5px 0 0 0 #f59e0b !important;
+.cell-shift.col-today:not([data-val="M"]):not([data-val="T"]):not([data-val="R"]) {
+  background-color: rgba(37, 99, 235, 0.08);
+}
+
+body.dark-theme .cell-shift.col-today:not([data-val="M"]):not([data-val="T"]):not([data-val="R"]) {
+  background-color: rgba(56, 189, 248, 0.12);
+}
+
+.row-operator:hover .cell-shift.col-today {
+  box-shadow: inset 3px 0 0 0 var(--color-today-line), inset -3px 0 0 0 var(--color-today-line) !important;
+}
+
+.cell-shift.col-today:hover {
+  box-shadow: inset 3px 0 0 0 var(--color-today-line), inset -3px 0 0 0 var(--color-today-line), inset 0 0 0 1.5px var(--primary) !important;
+}
+
+.cell-shift.col-today:focus {
+  box-shadow: inset 3px 0 0 0 var(--color-today-line), inset -3px 0 0 0 var(--color-today-line), inset 0 0 0 2px var(--primary) !important;
 }
 
 /* Destaque de Busca / Operador Selecionado em Ambas as Tabelas */
@@ -1922,8 +1931,7 @@ body.dark-theme.mode-view #btn-add-obs:hover {
   background: rgba(255, 255, 255, 0.1) !important;
 }
 
-body.mode-view .cell-shift,
-body.mode-view .cell-sub-shift {
+body.mode-view .cell-shift {
   cursor: default;
 }
 
@@ -2516,16 +2524,11 @@ body.dark-theme .extra-hours-table tbody tr:hover {
   }
 
   .row-blue-stripe {
-    height: 16px !important;
+    height: 10px !important;
   }
 
   .row-blue-stripe td {
-    height: 16px !important;
-    font-size: 8.5px;
-  }
-
-  .cell-sub-shift {
-    font-size: 10px !important;
+    height: 10px !important;
   }
 
   .year-badge {

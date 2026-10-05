@@ -96,6 +96,13 @@
   const btnClearSearch = document.getElementById('btn-clear-search');
   const saveStatus = document.getElementById('save-status');
 
+  // Botão Explícito de Salvar Alterações na Nuvem
+  const btnSaveCloud = document.getElementById('btn-save-cloud');
+  const saveStatusSubtext = document.getElementById('save-status-subtext');
+  let hasUnsavedChanges = false;
+  let isSavingToCloud = false;
+  let successResetTimeout = null;
+
   const thead = document.getElementById('schedule-thead');
   const tbody = document.getElementById('schedule-tbody');
   const obsList = document.getElementById('obs-list');
@@ -177,38 +184,91 @@
     return JSON.parse(JSON.stringify(DEFAULT_DATA));
   }
 
-  function saveState() {
+  function updateSaveButtonUI(status) {
+    if (!btnSaveCloud || !saveStatusSubtext) return;
+    if (successResetTimeout) {
+      clearTimeout(successResetTimeout);
+      successResetTimeout = null;
+    }
+
+    const titleEl = btnSaveCloud.querySelector('.btn-save-title');
+
+    if (status === 'saving') {
+      btnSaveCloud.className = 'btn-save-cloud state-saving';
+      if (titleEl) titleEl.textContent = 'Salvando na Nuvem...';
+      saveStatusSubtext.className = 'save-status-subtext subtext-saving';
+      saveStatusSubtext.textContent = 'comunicando com o servidor...';
+      btnSaveCloud.disabled = true;
+    } else if (status === 'pending') {
+      btnSaveCloud.className = 'btn-save-cloud state-pending';
+      if (titleEl) titleEl.textContent = 'Salvar Alterações';
+      saveStatusSubtext.className = 'save-status-subtext subtext-pending';
+      saveStatusSubtext.textContent = 'aguardando salvamento';
+      btnSaveCloud.disabled = false;
+    } else if (status === 'success') {
+      btnSaveCloud.className = 'btn-save-cloud state-success';
+      if (titleEl) titleEl.textContent = 'Alterações Salvas';
+      saveStatusSubtext.className = 'save-status-subtext subtext-success';
+      saveStatusSubtext.textContent = 'dados salvos e sincronizados';
+      btnSaveCloud.disabled = false;
+
+      // Mantém a confirmação por 2,5 segundos e volta ao estado neutro
+      successResetTimeout = setTimeout(() => {
+        if (!hasUnsavedChanges && !isSavingToCloud) {
+          updateSaveButtonUI('clean');
+        }
+      }, 2500);
+    } else if (status === 'error') {
+      btnSaveCloud.className = 'btn-save-cloud state-error';
+      if (titleEl) titleEl.textContent = 'Erro ao Salvar!';
+      saveStatusSubtext.className = 'save-status-subtext subtext-error';
+      saveStatusSubtext.textContent = 'falha de conexão ou sessão';
+      btnSaveCloud.disabled = false;
+    } else {
+      // Estado limpo (clean)
+      btnSaveCloud.className = 'btn-save-cloud state-clean';
+      if (titleEl) titleEl.textContent = 'Alterações Salvas';
+      saveStatusSubtext.className = 'save-status-subtext subtext-clean';
+      saveStatusSubtext.textContent = 'nenhuma alteração';
+      btnSaveCloud.disabled = false;
+    }
+  }
+
+  function saveState(markAsPending = true) {
     try {
       const key = getMonthStorageKey(state.year, state.month, state.sector);
       localStorage.setItem(key, JSON.stringify(state));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      triggerSaveIndicator('Salvo local');
-      queueCloudSync();
+      
+      if (markAsPending) {
+        hasUnsavedChanges = true;
+        updateSaveButtonUI('pending');
+        triggerSaveIndicator('Alterações pendentes', 'cloud-syncing');
+      }
     } catch (e) {
       console.error('Erro ao salvar no localStorage:', e);
     }
-  }
-
-  function queueCloudSync() {
-    if (syncTimeout) clearTimeout(syncTimeout);
-    triggerSaveIndicator('Sincronizando...', 'cloud-syncing');
-    syncTimeout = setTimeout(() => {
-      syncWithCloud();
-    }, 600);
   }
 
   function handleSessionExpired() {
     currentUser = null;
     localStorage.removeItem('escala_current_user');
     updateAuthViewState();
-    alert('Sua sessão expirou ou é inválida. Por favor, faça login novamente.');
+    alert('Sua sessão expirou ou é inválida. Por favor, faça login novamente para salvar as alterações.');
   }
 
   async function syncWithCloud() {
+    if (isSavingToCloud) return false;
+
     if (!currentUser || !currentUser.token) {
-      triggerSaveIndicator('Salvo local');
-      return;
+      alert('Você precisa estar conectado para sincronizar as alterações com a nuvem.');
+      openAuthModal();
+      return false;
     }
+
+    isSavingToCloud = true;
+    updateSaveButtonUI('saving');
+    triggerSaveIndicator('Salvando na nuvem...', 'cloud-syncing');
 
     try {
       const res = await fetch('/api/escala', {
@@ -221,20 +281,31 @@
       });
 
       if (res.status === 401) {
+        isSavingToCloud = false;
+        updateSaveButtonUI('error');
         handleSessionExpired();
-        return;
+        return false;
       }
 
       if (res.ok) {
         const json = await res.json();
         if (json.success) {
+          hasUnsavedChanges = false;
+          isSavingToCloud = false;
+          updateSaveButtonUI('success');
           triggerSaveIndicator('☁️ Nuvem sincronizada', 'cloud-synced');
-          return;
+          return true;
         }
       }
-      triggerSaveIndicator('Salvo local');
+
+      throw new Error('Servidor retornou resposta inesperada');
     } catch (err) {
-      triggerSaveIndicator('Salvo local');
+      console.error('Erro ao salvar na nuvem:', err);
+      isSavingToCloud = false;
+      updateSaveButtonUI('error');
+      triggerSaveIndicator('Erro ao salvar na nuvem');
+      alert('Não foi possível salvar na nuvem. Verifique sua conexão e tente novamente pelo botão "Salvar Alterações".');
+      return false;
     }
   }
 
@@ -249,6 +320,8 @@
           state = json.data;
           const key = getMonthStorageKey(year, month, sector);
           localStorage.setItem(key, JSON.stringify(state));
+          hasUnsavedChanges = false;
+          updateSaveButtonUI('clean');
           triggerSaveIndicator('☁️ Nuvem sincronizada', 'cloud-synced');
           renderAll();
           return;
@@ -278,6 +351,7 @@
       });
       state.observations = [];
     }
+    updateSaveButtonUI('clean');
     triggerSaveIndicator('Salvo local');
     renderAll();
   }
@@ -1741,6 +1815,23 @@
         }
       });
     }
+
+    // 14. Botão de Salvar Alterações na Nuvem
+    if (btnSaveCloud) {
+      btnSaveCloud.addEventListener('click', () => {
+        if (isSavingToCloud) return;
+        syncWithCloud();
+      });
+    }
+
+    // Aviso do navegador para evitar perda de dados no F5 ou fechamento acidental
+    window.addEventListener('beforeunload', (e) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = 'Existem alterações não salvas na nuvem. Deseja realmente sair?';
+        return e.returnValue;
+      }
+    });
   }
 
   // =========================================================================
@@ -1778,6 +1869,7 @@
   initTheme();
   setupSystemThemeDetection();
   setupEventListeners();
+  updateSaveButtonUI('clean');
   renderAll();
   updateAuthViewState();
   if (currentUser) {

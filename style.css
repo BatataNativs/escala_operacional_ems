@@ -605,8 +605,9 @@ body.dark-theme .chip-r { background: #094e21; color: #ffffff; border-color: #10
 .year-badge-container {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   margin-bottom: 8px;
+  flex-wrap: wrap;
 }
 
 .year-badge {
@@ -624,6 +625,142 @@ body.dark-theme .chip-r { background: #094e21; color: #ffffff; border-color: #10
   box-shadow: var(--shadow-sm);
   user-select: none;
   flex-shrink: 0;
+}
+
+/* Container e Botão de Salvar na Nuvem */
+.save-action-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  user-select: none;
+}
+
+.btn-save-cloud {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm);
+}
+
+.save-status-subtext {
+  font-size: 0.65rem;
+  font-weight: 600;
+  margin-top: 2px;
+  padding-left: 2px;
+  letter-spacing: 0.02em;
+  transition: color 0.2s ease;
+}
+
+/* Estado 1: Limpo / Sincronizado (Cinza / Verde Suave) */
+.btn-save-cloud.state-clean {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  border-color: rgba(16, 185, 129, 0.3);
+  cursor: default;
+}
+.dark-theme .btn-save-cloud.state-clean {
+  background: rgba(16, 185, 129, 0.16);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+.btn-save-cloud.state-clean .save-icon-check { display: inline-block; }
+.btn-save-cloud.state-clean .save-icon-pending { display: none; }
+.btn-save-cloud.state-clean .save-icon-spinner { display: none; }
+.save-action-wrapper .save-status-subtext.subtext-clean {
+  color: var(--text-muted);
+}
+
+/* Estado 2: Pendente (Laranja Vibrante - Chamando Atenção) */
+.btn-save-cloud.state-pending {
+  background: #ea580c;
+  color: #ffffff;
+  border-color: #c2410c;
+  cursor: pointer;
+  animation: pulseSaveBtn 2s infinite ease-in-out;
+}
+.btn-save-cloud.state-pending:hover {
+  background: #c2410c;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(234, 88, 12, 0.35);
+}
+.btn-save-cloud.state-pending .save-icon-check { display: none; }
+.btn-save-cloud.state-pending .save-icon-pending { display: inline-block; }
+.btn-save-cloud.state-pending .save-icon-spinner { display: none; }
+.save-action-wrapper .save-status-subtext.subtext-pending {
+  color: #ea580c;
+  font-weight: 700;
+}
+.dark-theme .save-action-wrapper .save-status-subtext.subtext-pending {
+  color: #fb923c;
+}
+
+/* Estado 3: Salvando... (Com Spinner) */
+.btn-save-cloud.state-saving {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #1d4ed8;
+  cursor: wait;
+}
+.btn-save-cloud.state-saving .save-icon-check { display: none; }
+.btn-save-cloud.state-saving .save-icon-pending { display: none; }
+.btn-save-cloud.state-saving .save-icon-spinner {
+  display: inline-block;
+  animation: spinSave 0.8s linear infinite;
+}
+.save-action-wrapper .save-status-subtext.subtext-saving {
+  color: #2563eb;
+}
+
+/* Estado 4: Sucesso Confirmado (Verde Vibrante Temporário) */
+.btn-save-cloud.state-success {
+  background: #10b981;
+  color: #ffffff;
+  border-color: #059669;
+  cursor: default;
+}
+.btn-save-cloud.state-success .save-icon-check { display: inline-block; }
+.btn-save-cloud.state-success .save-icon-pending { display: none; }
+.btn-save-cloud.state-success .save-icon-spinner { display: none; }
+.save-action-wrapper .save-status-subtext.subtext-success {
+  color: #059669;
+  font-weight: 700;
+}
+.dark-theme .save-action-wrapper .save-status-subtext.subtext-success {
+  color: #34d399;
+}
+
+/* Estado 5: Erro (Vermelho) */
+.btn-save-cloud.state-error {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #dc2626;
+  cursor: pointer;
+}
+.btn-save-cloud.state-error .save-icon-check { display: none; }
+.btn-save-cloud.state-error .save-icon-pending { display: inline-block; }
+.btn-save-cloud.state-error .save-icon-spinner { display: none; }
+.save-action-wrapper .save-status-subtext.subtext-error {
+  color: #ef4444;
+  font-weight: 700;
+}
+
+@keyframes spinSave {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulseSaveBtn {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(234, 88, 12, 0); }
 }
 
 /* Estilo Central da Tabela da Escala */

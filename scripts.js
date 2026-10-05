@@ -1284,7 +1284,6 @@
       // Atualiza no cabeçalho da tabela em tempo real
       const unitTh = thead.querySelector('.cell-unit');
       if (unitTh) unitTh.textContent = val;
-      queueCloudSync();
     });
 
     // Edição inline da Unidade / Setor diretamente na célula da tabela
@@ -1296,7 +1295,6 @@
         el.textContent = val;
         if (inputSector) inputSector.value = val;
         saveState();
-        queueCloudSync();
       }
     }, true);
 

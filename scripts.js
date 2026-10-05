@@ -435,7 +435,8 @@
       <th class="cell-hdr-op col-name">Operadores</th>`;
     daysInfo.forEach(d => {
       const todayClass = (isCurrentYearMonth && d.dayNumber === currentDay) ? ' col-today' : '';
-      tr2 += `<th class="cell-day-num col-day${todayClass}">${d.dayNumber}</th>`;
+      const weekendClass = d.isWeekend ? ' col-weekend' : '';
+      tr2 += `<th class="cell-day-num col-day${weekendClass}${todayClass}">${d.dayNumber}</th>`;
     });
     tr2 += `</tr>`;
 
@@ -445,6 +446,9 @@
   function renderBody() {
     const daysInfo = getMonthDaysInfo(state.year, state.month);
     const searchTerm = (searchOperator.value || '').trim().toLowerCase();
+    const today = new Date();
+    const isCurrentYearMonth = today.getFullYear() === state.year && today.getMonth() === state.month;
+    const currentDay = today.getDate();
 
     let html = '';
 
@@ -499,7 +503,9 @@
       // Células de Turno (1..31)
       daysInfo.forEach(d => {
         const val = op.shifts[d.dayNumber] || '';
-        html += `<td class="cell-shift col-day" 
+        const weekendClass = d.isWeekend ? ' col-weekend' : '';
+        const todayClass = (isCurrentYearMonth && d.dayNumber === currentDay) ? ' col-today' : '';
+        html += `<td class="cell-shift col-day${weekendClass}${todayClass}" 
                     tabindex="${currentMode === 'edit' ? 0 : -1}" 
                     data-val="${escapeHtml(val)}" 
                     data-op-id="${safeOpId}" 
@@ -515,7 +521,9 @@
         html += `<td class="cell-sub-name col-name"></td>`;
         daysInfo.forEach(d => {
           const subVal = (op.subShifts && op.subShifts[d.dayNumber]) || '';
-          html += `<td class="cell-sub-shift col-day" 
+          const weekendClass = d.isWeekend ? ' col-weekend' : '';
+          const todayClass = (isCurrentYearMonth && d.dayNumber === currentDay) ? ' col-today' : '';
+          html += `<td class="cell-sub-shift col-day${weekendClass}${todayClass}" 
                       tabindex="${currentMode === 'edit' ? 0 : -1}" 
                       data-val="${escapeHtml(subVal)}" 
                       data-op-id="${safeOpId}" 

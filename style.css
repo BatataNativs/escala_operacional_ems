@@ -4,29 +4,38 @@
    ========================================================================== */
 
 :root {
-  /* Cores Temáticas da Escala (Modo Claro Moderno) */
-  --color-year: #e1e5e8;
-  --color-month: #000000;
+  /* Cores Temáticas da Escala (Modo Claro Moderno & Executivo) */
+  --color-year: #1e293b;
+  --color-month: #0f172a;
   --color-unit: #1e293b;
-  --color-weekday: #475569;
-  --color-weekend: #5b21b6;
-  --color-col-header: #4f46e5;
+  --color-weekday: #334155;
+  --color-weekend: #4338ca;
+  --color-col-header: #1e293b;
   --color-days-header: #2563eb;
-  --color-operator-row: #fef08a;
-  --color-operator-row-text: #1e293b;
-  --color-leg-cell: #2563eb; /* Tom azul diferenciado dos nomes */
-  --color-leg-cell-text: #eae5e4;
-  --color-blue-stripe: #2563eb;
+  --color-operator-row: #fefce8; /* Creme suave de alta legibilidade, sem cansar a vista */
+  --color-operator-row-hover: #fef08a; /* Destaque caloroso e suave ao passar o cursor */
+  --color-operator-row-text: #0f172a; /* Texto de alto contraste e máxima nitidez */
+  --color-leg-cell: #1e40af; /* Badge azul royal executivo */
+  --color-leg-cell-text: #ffffff;
+  --color-blue-stripe: #f1f5f9; /* Separador sutil e moderno entre operadores */
+  --color-blue-stripe-text: #64748b;
   --color-obs-header: #347cda;
   --color-obs-header-text: #ffffff; /* Cor do texto do header de Observações */
   --color-obs-body: #edf0e9;
   --color-obs-text: #0f1011;
 
-  /* Cores dos Turnos M, T, R nas Células da Tabela */
-  --color-shift-m-text: #16a84b; /* Cor da letra M (Verde escuro) */
-  --color-shift-t-text: #cc5120; /* Cor da letra T (Laranja escuro) */
-  --color-shift-r-bg: #14532d;   /* Cor de fundo do R (Verde escuro) */
-  --color-shift-r-text: #ffffff; /* Cor da letra R (Branco) */
+  /* Cores dos Turnos M, T, R (Idênticas aos botões da legenda) */
+  --color-shift-m-bg: #6fe297;
+  --color-shift-m-text: #0b4220;
+  --color-shift-m-border: #86efac;
+
+  --color-shift-t-bg: #e39d60;
+  --color-shift-t-text: #0f0e0e;
+  --color-shift-t-border: #fde68a;
+
+  --color-shift-r-bg: #15803d;   /* Verde floresta para 24h RISAER */
+  --color-shift-r-text: #ffffff; /* Texto branco puro */
+  --color-shift-r-border: #166534;
 
   /* Superfície, Bordas e Elementos de Interface */
   --bg-app: #f1f5f9;
@@ -35,8 +44,8 @@
   --bg-controls: #f8fafc;
   --text-main: #0f172a;
   --text-muted: #64748b;
-  --border-sheet: #64748b;
-  --border-cell: #94a3b8;
+  --border-sheet: #94a3b8;
+  --border-cell: #cbd5e1; /* Divisores modernos, nítidos e suaves */
   --border-light: #e2e8f0;
   --input-bg: #ffffff;
   --input-border: #cbd5e1;
@@ -58,28 +67,37 @@
    TEMA ESCURO MODERNO (DARK THEME)
    ========================================================================== */
 body.dark-theme {
-  --color-year: #bbc7d0;
-  --color-month: #171717;
+  --color-year: #0f172a;
+  --color-month: #090d16;
   --color-unit: #0f172a;
-  --color-weekday: #334155;
-  --color-weekend: #4c1d95;
-  --color-col-header: #4338ca;
-  --color-days-header: #2563eb;
-  --color-operator-row: #f8fafc; /* Branco / cinza ultra-claro */
-  --color-operator-row-text: #0f172a; /* Texto escuro de alto contraste */
-  --color-leg-cell: #2a4d7c; /* Tom azul escuro diferenciado das células dos operadores */
-  --color-leg-cell-text: #d0d5e0;
-  --color-blue-stripe: #2563eb;
+  --color-weekday: #1e293b;
+  --color-weekend: #3730a3;
+  --color-col-header: #0f172a;
+  --color-days-header: #1d4ed8;
+  --color-operator-row: #111827; /* Superfície slate escura elegante, sem ofuscar */
+  --color-operator-row-hover: #1e293b; /* Destaque sutil de linha no modo escuro */
+  --color-operator-row-text: #f8fafc; /* Texto claro de alto contraste */
+  --color-leg-cell: #1d4ed8; /* Badge azul cobalto no dark mode */
+  --color-leg-cell-text: #ffffff;
+  --color-blue-stripe: #0b0f19; /* Faixa separadora escura e elegante */
+  --color-blue-stripe-text: #94a3b8;
   --color-obs-header: #0f147c;
   --color-obs-header-text: #ffffff; /* Cor do texto do header de Observações no modo escuro */
   --color-obs-body: #131924;
   --color-obs-text: #e2e8f0;
 
-  /* Cores dos Turnos M, T, R no Modo Escuro */
-  --color-shift-m-text: #16a34a; /* Cor da letra M no escuro (Verde nítido) */
-  --color-shift-t-text: #ea580c; /* Cor da letra T no escuro (Laranja nítido) */
-  --color-shift-r-bg: #166534;   /* Cor de fundo do R no escuro (Verde escuro) */
-  --color-shift-r-text: #ffffff; /* Cor da letra R no escuro (Branco) */
+  /* Cores dos Turnos M, T, R no Modo Escuro (Idênticas aos botões da legenda) */
+  --color-shift-m-bg: #6ee7b7;
+  --color-shift-m-text: #121212;
+  --color-shift-m-border: #047857;
+
+  --color-shift-t-bg: #b1490c;
+  --color-shift-t-text: #fffffe;
+  --color-shift-t-border: #b45309;
+
+  --color-shift-r-bg: #0c5026;   /* Verde floresta para 24h */
+  --color-shift-r-text: #ffffff; /* Texto branco nítido */
+  --color-shift-r-border: #22c55e;
 
   --bg-app: #0b0f19;
   --bg-header: #111827;
@@ -87,8 +105,8 @@ body.dark-theme {
   --bg-controls: #1e293b;
   --text-main: #f1f5f9;
   --text-muted: #94a3b8;
-  --border-sheet: #475569;
-  --border-cell: #cbd5e1; /* Borda nítida entre as células claras */
+  --border-sheet: #334155;
+  --border-cell: #243247; /* Bordas escuras nítidas e elegantes */
   --border-light: #1f293d;
   --input-bg: #1e293b;
   --input-border: #334155;
@@ -473,13 +491,9 @@ body.dark-theme .btn-theme .icon-moon {
   font-weight: 700;
 }
 
-.chip-m { background: #26d92c; color: #050505; border-color: #52e165; }
-.chip-t { background: #e69224; color: #050505; border-color: #f1b46e; }
-.chip-r { background: #094e21; color: #ffffff; border-color: #10511b; }
-
-body.dark-theme .chip-m { background: #26d92c; color: #050505; border-color: #52e165; }
-body.dark-theme .chip-t { background: #e69224; color: #050505; border-color: #f1b46e; }
-body.dark-theme .chip-r { background: #094e21; color: #ffffff; border-color: #10511b; }
+.chip-m { background: var(--color-shift-m-bg); color: var(--color-shift-m-text); border-color: var(--color-shift-m-border); }
+.chip-t { background: var(--color-shift-t-bg); color: var(--color-shift-t-text); border-color: var(--color-shift-t-border); }
+.chip-r { background: var(--color-shift-r-bg); color: var(--color-shift-r-text); border-color: var(--color-shift-r-border); }
 
 .quick-helpers {
   display: flex;
@@ -594,11 +608,16 @@ body.dark-theme .chip-r { background: #094e21; color: #ffffff; border-color: #10
   touch-action: pan-x pan-y pinch-zoom;
   position: relative;
   border: 1px solid var(--border-sheet);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--bg-card);
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
+  box-shadow: 0 4px 18px -2px rgba(15, 23, 42, 0.08);
+}
+
+body.dark-theme .table-wrapper {
+  box-shadow: 0 4px 22px -2px rgba(0, 0, 0, 0.45);
 }
 
 /* Badge do Ano e Busca de Operador (Posicionados logo acima da coluna Leg. e Operadores) */
@@ -611,20 +630,27 @@ body.dark-theme .chip-r { background: #094e21; color: #ffffff; border-color: #10
 }
 
 .year-badge {
-  width: 52px;
+  width: 54px;
   height: 32px;
-  background-color: var(--color-year);
-  color: #000000;
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  color: #ffffff;
+  font-family: 'JetBrains Mono', monospace;
   font-weight: 800;
-  font-size: 16px;
+  font-size: 15px;
+  letter-spacing: 0.04em;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border-cell);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: var(--shadow-sm);
   user-select: none;
   flex-shrink: 0;
+}
+
+body.dark-theme .year-badge {
+  background: linear-gradient(135deg, #1e3a8a, #1d4ed8);
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
 /* Container e Botão de Salvar na Nuvem */
@@ -763,15 +789,19 @@ body.dark-theme .chip-r { background: #094e21; color: #ffffff; border-color: #10
   50% { box-shadow: 0 0 0 6px rgba(234, 88, 12, 0); }
 }
 
-/* Estilo Central da Tabela da Escala */
+/* ==========================================================================
+   ESTILO CENTRAL DA TABELA DA ESCALA (DESIGN REFINADO & MODERNO)
+   ========================================================================== */
 .schedule-table {
   border-collapse: separate;
   border-spacing: 0;
   width: 100%;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 13px;
   color: var(--text-main);
   user-select: none;
   touch-action: pan-x pan-y pinch-zoom;
+  background-color: var(--bg-card);
 }
 
 .schedule-table th, 
@@ -785,7 +815,7 @@ body.dark-theme .chip-r { background: #094e21; color: #ffffff; border-color: #10
   padding: 0;
   height: 28px;
   min-height: 28px;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
   box-sizing: border-box;
 }
 
@@ -813,7 +843,7 @@ body.dark-theme .chip-r { background: #094e21; color: #ffffff; border-color: #10
   min-width: 175px;
   max-width: 230px;
   text-align: left !important;
-  padding-left: 8px !important;
+  padding-left: 10px !important;
   padding-right: 6px !important;
   white-space: nowrap;
   overflow: hidden;
@@ -822,7 +852,11 @@ body.dark-theme .chip-r { background: #094e21; color: #ffffff; border-color: #10
   left: 44px !important;
   z-index: 20 !important;
   box-sizing: border-box;
-  box-shadow: 4px 0 8px -2px rgba(0, 0, 0, 0.22);
+  box-shadow: 6px 0 14px -3px rgba(15, 23, 42, 0.12) !important;
+}
+
+body.dark-theme .col-name {
+  box-shadow: 6px 0 14px -3px rgba(0, 0, 0, 0.5) !important;
 }
 
 /* No cabeçalho (thead), as colunas fixas têm prioridade máxima de z-index */
@@ -835,6 +869,11 @@ thead th.col-name {
   position: sticky !important;
   left: 44px !important;
   z-index: 35 !important;
+  box-shadow: 6px 0 14px -3px rgba(15, 23, 42, 0.16) !important;
+}
+
+body.dark-theme thead th.col-name {
+  box-shadow: 6px 0 14px -3px rgba(0, 0, 0, 0.55) !important;
 }
 
 .col-day {
@@ -848,42 +887,60 @@ thead th.col-name {
 /* Linha 1: Mês, Unidade e Dias da Semana */
 .cell-month {
   background-color: var(--color-month) !important;
+  font-family: 'Inter', sans-serif !important;
   font-weight: 800 !important;
-  font-size: 13px !important;
+  font-size: 12.5px !important;
   color: #ffffff !important;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .cell-unit {
   background-color: var(--color-unit) !important;
-  font-weight: 800 !important;
-  font-size: 13px !important;
+  font-family: 'Inter', sans-serif !important;
+  font-weight: 700 !important;
+  font-size: 12.5px !important;
   color: #ffffff !important;
   text-align: center !important;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.cell-unit:hover {
+  background-color: #27374d !important;
 }
 
 .cell-weekday {
   background-color: var(--color-weekday) !important;
-  color: #ffffff !important;
+  color: #f1f5f9 !important;
+  font-family: 'Inter', sans-serif !important;
   font-weight: 700 !important;
-  font-size: 11px !important;
-  letter-spacing: -0.02em;
+  font-size: 10.5px !important;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .cell-weekend {
   background-color: var(--color-weekend) !important;
   color: #ffffff !important;
-  font-weight: 700 !important;
-  font-size: 11px !important;
-  letter-spacing: -0.02em;
+  font-family: 'Inter', sans-serif !important;
+  font-weight: 800 !important;
+  font-size: 10.5px !important;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 /* Linha 2: Leg., Operadores e Números dos Dias */
 .cell-hdr-leg, 
 .cell-hdr-op {
   background-color: var(--color-col-header) !important;
-  color: #ffffff !important;
+  color: #cbd5e1 !important;
+  font-family: 'Inter', sans-serif !important;
   font-weight: 700 !important;
-  font-size: 12px !important;
+  font-size: 11.5px !important;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .cell-hdr-op {
@@ -895,41 +952,94 @@ thead th.col-name {
 .cell-day-num {
   background-color: var(--color-days-header) !important;
   color: #ffffff !important;
+  font-family: 'JetBrains Mono', monospace !important;
   font-weight: 700 !important;
   font-size: 12px !important;
 }
 
-/* Hoje (Destaque do Dia Atual) */
-.col-today {
-  box-shadow: inset 0 0 0 2px #f59e0b !important;
+.cell-day-num.col-weekend {
+  background-color: var(--color-weekend) !important;
+  filter: brightness(0.92);
 }
+
+/* Hoje (Destaque do Dia Atual nos Cabeçalhos) */
+.cell-weekday.col-today,
+.cell-weekend.col-today {
+  background-color: #1e3a8a !important;
+  color: #fbbf24 !important;
+  font-weight: 800 !important;
+}
+
 .cell-day-num.col-today {
   background-color: #1d4ed8 !important;
+  color: #fbbf24 !important;
+  font-weight: 800 !important;
+  box-shadow: inset 0 -3px 0 0 #f59e0b !important;
 }
 
 /* ==========================================================================
-   LINHAS DE DADOS (OPERADORES & FAIXAS AZUIS)
+   LINHAS DE DADOS (OPERADORES & FAIXAS DE SUB-TURNO)
    ========================================================================== */
-/* Linha Amarela Principal do Operador */
+/* Linha Principal do Operador */
 .row-operator {
   background-color: var(--color-operator-row);
+  transition: background-color 0.15s ease;
 }
 
 .row-operator td {
   background-color: var(--color-operator-row);
   color: var(--color-operator-row-text);
-  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
   font-size: 13px;
+}
+
+/* Efeito Hover na Linha Inteira (Rastreamento Horizontal Fácil) */
+.row-operator:hover td {
+  background-color: var(--color-operator-row-hover) !important;
+}
+
+.row-operator:hover .cell-leg-val {
+  filter: brightness(1.1);
+}
+
+.row-operator:hover .cell-shift[data-val="M"],
+.row-operator:hover .cell-sub-shift[data-val="M"] {
+  background-color: var(--color-shift-m-bg) !important;
+  filter: brightness(0.97);
+}
+
+.row-operator:hover .cell-shift[data-val="T"],
+.row-operator:hover .cell-sub-shift[data-val="T"] {
+  background-color: var(--color-shift-t-bg) !important;
+  filter: brightness(0.97);
+}
+
+.row-operator:hover .cell-shift[data-val="R"],
+.row-operator:hover .cell-sub-shift[data-val="R"] {
+  background-color: var(--color-shift-r-bg) !important;
+  filter: brightness(1.05);
+}
+
+body.dark-theme .row-operator:hover .cell-shift[data-val="M"],
+body.dark-theme .row-operator:hover .cell-sub-shift[data-val="M"],
+body.dark-theme .row-operator:hover .cell-shift[data-val="T"],
+body.dark-theme .row-operator:hover .cell-sub-shift[data-val="T"],
+body.dark-theme .row-operator:hover .cell-shift[data-val="R"],
+body.dark-theme .row-operator:hover .cell-sub-shift[data-val="R"] {
+  filter: brightness(1.15);
 }
 
 .cell-leg-val {
   background-color: var(--color-leg-cell) !important;
   color: var(--color-leg-cell-text) !important;
+  font-family: 'JetBrains Mono', monospace !important;
   font-weight: 800 !important;
-  font-size: 13px;
+  font-size: 13px !important;
   position: sticky !important;
   left: 0 !important;
   padding: 0 !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 
 .leg-container {
@@ -951,7 +1061,7 @@ thead th.col-name {
   transition: opacity 0.15s ease;
 }
 
-/* Painel de Setas de Mover Operador sobre a Legenda (Branca com Preenchimento, Moderna e Visível) */
+/* Painel de Setas de Mover Operador sobre a Legenda */
 .leg-move-arrows {
   position: absolute;
   inset: 0;
@@ -1017,14 +1127,19 @@ thead th.col-name {
 
 .cell-op-name {
   background-color: var(--color-operator-row) !important;
-  font-size: 13px;
-  font-weight: 700;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
   text-align: center !important;
   padding: 0 8px !important;
   position: relative;
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
+}
+
+.row-operator:hover .cell-op-name {
+  background-color: var(--color-operator-row-hover) !important;
 }
 
 .name-container {
@@ -1040,12 +1155,20 @@ thead th.col-name {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding: 2px 6px;
+  padding: 3px 8px;
   border-radius: 4px;
   user-select: none;
   -webkit-user-select: none;
   cursor: pointer;
   transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.op-name-text:hover:not(.is-editing) {
+  background-color: rgba(37, 99, 235, 0.08);
+}
+
+body.dark-theme .op-name-text:hover:not(.is-editing) {
+  background-color: rgba(59, 130, 246, 0.16);
 }
 
 /* Modo de edição de texto ativado com duplo clique / duplo toque */
@@ -1088,7 +1211,11 @@ body.dark-theme .op-name-text.is-editing {
 
 /* Destaque sutil na linha e na célula do nome quando selecionado */
 .row-operator.op-selected .cell-op-name {
-  box-shadow: inset 0 0 0 1.5px rgba(239, 68, 68, 0.5);
+  box-shadow: inset 0 0 0 2px var(--primary) !important;
+}
+
+.row-operator.op-selected .cell-leg-val {
+  box-shadow: inset 0 0 0 2px #ffffff !important;
 }
 
 /* Botão X Vermelho de Excluir Operador */
@@ -1121,41 +1248,58 @@ body.mode-view .leg-move-arrows {
   display: none !important;
 }
 
-/* Células de Turno (M, T, N, etc) */
+/* Células de Turno (M, T, R, etc) */
 .cell-shift {
   cursor: pointer;
-  font-family: 'Fredoka', 'Comic Sans MS', 'Chalkboard SE', cursive, sans-serif;
+  font-family: 'Inter', monospace !important;
   font-weight: 700 !important;
-  font-size: 15px !important;
+  font-size: 14.5px !important;
   letter-spacing: 0.02em;
-  transition: background-color 0.15s, box-shadow 0.15s;
+  transition: background-color 0.12s ease, box-shadow 0.12s ease, color 0.12s ease;
+  position: relative;
 }
 
-.cell-shift:hover {
-  background-color: rgba(22, 171, 182, 0.45) !important;
-  box-shadow: inset 0 0 0 1px var(--primary);
+.cell-shift:hover,
+.cell-sub-shift:hover {
+  box-shadow: inset 0 0 0 1.5px var(--primary) !important;
 }
 
-.cell-shift:focus {
+.cell-shift:not([data-val="M"]):not([data-val="T"]):not([data-val="R"]):hover,
+.cell-sub-shift:not([data-val="M"]):not([data-val="T"]):not([data-val="R"]):hover {
+  background-color: rgba(37, 99, 235, 0.12) !important;
+}
+
+.cell-shift:focus,
+.cell-sub-shift:focus {
   outline: none;
-  background-color: var(--bg-card) !important;
   box-shadow: inset 0 0 0 2px var(--primary) !important;
+  z-index: 2;
 }
 
-/* Destaque de cores dos turnos dentro da célula (M, T, R) */
-.cell-shift[data-val="M"] {
+/* Destaque e Preenchimento Completo das Células de Turno (M, T, R) - Idêntico aos botões da legenda */
+.cell-shift[data-val="M"],
+.cell-sub-shift[data-val="M"] {
+  background-color: var(--color-shift-m-bg) !important;
   color: var(--color-shift-m-text) !important;
+  font-weight: 800 !important;
 }
-.cell-shift[data-val="T"] {
+
+.cell-shift[data-val="T"],
+.cell-sub-shift[data-val="T"] {
+  background-color: var(--color-shift-t-bg) !important;
   color: var(--color-shift-t-text) !important;
+  font-weight: 800 !important;
 }
+
 .cell-shift[data-val="R"],
 .cell-sub-shift[data-val="R"] {
   background-color: var(--color-shift-r-bg) !important;
   color: var(--color-shift-r-text) !important;
+  font-weight: 800 !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
 }
 
-/* Linha Azul Intermediária (Faixa Visual / Segundo Turno) */
+/* Faixa Intermediária de Sub-Turnos */
 .row-blue-stripe {
   background-color: var(--color-blue-stripe);
   height: 20px !important;
@@ -1164,32 +1308,51 @@ body.mode-view .leg-move-arrows {
 .row-blue-stripe td {
   background-color: var(--color-blue-stripe);
   height: 20px !important;
-  color: #ffffff;
+  color: var(--color-blue-stripe-text);
   font-size: 11px;
 }
 
 .row-blue-stripe .cell-blank-sub {
-  background-color: var(--color-operator-row) !important;
-  border: 1px solid var(--border-cell);
+  background-color: var(--color-blue-stripe) !important;
+  border-right: 1px solid var(--border-cell);
+  border-bottom: 1px solid var(--border-cell);
 }
 
 .row-blue-stripe .cell-sub-name {
   background-color: var(--color-blue-stripe) !important;
-  font-size: 11px;
+  border-right: 1px solid var(--border-cell);
+  border-bottom: 1px solid var(--border-cell);
 }
 
 .cell-sub-shift {
   cursor: pointer;
-  font-size: 13px !important;
-  font-family: 'Fredoka', 'Comic Sans MS', 'Chalkboard SE', cursive, sans-serif;
+  font-size: 12px !important;
+  font-family: 'JetBrains Mono', monospace !important;
   font-weight: 700 !important;
+  transition: background-color 0.12s ease, filter 0.12s ease;
 }
-.cell-sub-shift:hover {
-  filter: brightness(1.2);
+
+/* Finais de Semana no Corpo da Tabela (apenas dias vazios mantêm a guia vertical suave) */
+.cell-shift.col-weekend:not([data-val="M"]):not([data-val="T"]):not([data-val="R"]) {
+  background-color: rgba(79, 70, 229, 0.04);
 }
-.cell-sub-shift:focus {
-  outline: none;
-  box-shadow: inset 0 0 0 2px #93c5fd !important;
+
+.cell-sub-shift.col-weekend:not([data-val="M"]):not([data-val="T"]):not([data-val="R"]) {
+  background-color: rgba(79, 70, 229, 0.06);
+}
+
+body.dark-theme .cell-shift.col-weekend:not([data-val="M"]):not([data-val="T"]):not([data-val="R"]) {
+  background-color: rgba(99, 102, 241, 0.07);
+}
+
+body.dark-theme .cell-sub-shift.col-weekend:not([data-val="M"]):not([data-val="T"]):not([data-val="R"]) {
+  background-color: rgba(99, 102, 241, 0.09);
+}
+
+/* Hoje no Corpo da Tabela */
+.cell-shift.col-today,
+.cell-sub-shift.col-today {
+  box-shadow: inset 1.5px 0 0 0 #f59e0b, inset -1.5px 0 0 0 #f59e0b !important;
 }
 
 /* Destaque de Busca / Operador Selecionado em Ambas as Tabelas */
@@ -1198,11 +1361,11 @@ body.mode-view .leg-move-arrows {
 }
 
 .operator-matched td {
-  background-color: rgba(37, 99, 235, 0.14) !important;
+  background-color: rgba(37, 99, 235, 0.16) !important;
 }
 
 body.dark-theme .operator-matched td {
-  background-color: rgba(59, 130, 246, 0.22) !important;
+  background-color: rgba(59, 130, 246, 0.24) !important;
 }
 
 .operator-dimmed {
@@ -1714,13 +1877,9 @@ body.dark-theme .col-stat-e10 {
   transition: all 0.12s ease;
 }
 
-.shift-pop-btn.m-btn { background: #e0f2fe; color: #0284c7; border-color: #bae6fd; }
-.shift-pop-btn.t-btn { background: #fef3c7; color: #d97706; border-color: #fde68a; }
-.shift-pop-btn.r-btn { background: #14532d; color: #ffffff; border-color: #166534; }
-
-body.dark-theme .shift-pop-btn.m-btn { background: #0c4a6e; color: #7dd3fc; border-color: #0369a1; }
-body.dark-theme .shift-pop-btn.t-btn { background: #78350f; color: #fde68a; border-color: #b45309; }
-body.dark-theme .shift-pop-btn.r-btn { background: #166534; color: #ffffff; border-color: #22c55e; }
+.shift-pop-btn.m-btn { background: var(--color-shift-m-bg); color: var(--color-shift-m-text); border-color: var(--color-shift-m-border); }
+.shift-pop-btn.t-btn { background: var(--color-shift-t-bg); color: var(--color-shift-t-text); border-color: var(--color-shift-t-border); }
+.shift-pop-btn.r-btn { background: var(--color-shift-r-bg); color: var(--color-shift-r-text); border-color: var(--color-shift-r-border); }
 
 .shift-pop-btn.clear-btn {
   width: auto;

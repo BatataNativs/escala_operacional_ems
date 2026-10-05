@@ -1082,6 +1082,10 @@
 
   function openShiftPopover(cell) {
     if (currentMode !== 'edit') return;
+    if (shiftPopover.style.display !== 'none' && activeCell === cell) {
+      closeShiftPopover();
+      return;
+    }
     activeCell = cell;
 
     const rect = cell.getBoundingClientRect();
@@ -1136,7 +1140,14 @@
       moveFocusCell(td, -1, 0);
     } else if (key === 'Enter') {
       e.preventDefault();
-      openShiftPopover(td);
+      if (shiftPopover.style.display !== 'none') {
+        closeShiftPopover();
+      } else {
+        openShiftPopover(td);
+      }
+    } else if (key === 'Escape') {
+      e.preventDefault();
+      closeShiftPopover();
     }
   }
 
@@ -1254,12 +1265,34 @@
       if (!dropdownMenu.contains(e.target) && e.target !== btnMore) {
         dropdownMenu.classList.remove('show');
       }
-      if (!shiftPopover.contains(e.target) && !e.target.classList.contains('cell-shift') && !e.target.classList.contains('cell-sub-shift')) {
+      if (!shiftPopover.contains(e.target) && !e.target.closest('.cell-shift') && !e.target.closest('.cell-sub-shift')) {
         closeShiftPopover();
       }
-      // Se clicou fora da célula do nome, da legenda e dos botões de ação, remove a seleção
+      // Se clicou fora da célula do nome, da legenda e dos botões de ação:
       if (!e.target.closest('.cell-op-name') && !e.target.closest('.cell-leg-val') && !e.target.closest('.btn-del-op')) {
+        // Fecha qualquer caixa de edição de texto que esteja aberta
+        closeOpNameEditing();
+
+        // Fecha a seleção do operador (remove as setas e o botão X)
         if (selectedOpId) {
+          selectedOpId = null;
+          tbody.querySelectorAll('.row-operator.op-selected').forEach(tr => {
+            tr.classList.remove('op-selected');
+          });
+        }
+      }
+    });
+
+    // Tecla Enter ou Escape global para fechar caixa de seleção de turno ou operador selecionado
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' || e.key === 'Enter') {
+        // Fecha popover de turno se estiver aberto
+        if (shiftPopover.style.display !== 'none') {
+          closeShiftPopover();
+        }
+        // Se houver operador selecionado e não estiver com o foco em campo de texto
+        if (selectedOpId && !e.target.classList.contains('op-name-text') && !e.target.classList.contains('leg-text')) {
+          closeOpNameEditing();
           selectedOpId = null;
           tbody.querySelectorAll('.row-operator.op-selected').forEach(tr => {
             tr.classList.remove('op-selected');
@@ -1399,6 +1432,14 @@
     });
 
     // 8. Edição do Nome do Operador via Duplo Clique / Duplo Toque
+    function closeOpNameEditing(targetSpan) {
+      const spans = targetSpan ? [targetSpan] : tbody.querySelectorAll('.op-name-text.is-editing, .op-name-text[contenteditable="true"]');
+      spans.forEach(span => {
+        span.contentEditable = 'false';
+        span.classList.remove('is-editing');
+      });
+    }
+
     function enableOpNameEditing(span) {
       if (currentMode !== 'edit' || !span) return;
       const opId = span.getAttribute('data-op-id');
@@ -1531,6 +1572,52 @@
     });
 
     tbody.addEventListener('keydown', (e) => {
+      const el = e.target;
+
+      // Teclas Enter e Escape ao editar nome do operador
+      if (el.classList.contains('op-name-text') || el.getAttribute('data-action') === 'edit-name') {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const opId = el.getAttribute('data-op-id');
+          const op = state.operators.find(o => o.id === opId);
+          if (op) {
+            op.name = el.textContent.trim();
+          }
+          closeOpNameEditing(el);
+          el.blur();
+          // Remove a seleção do operador ao apertar Enter
+          selectedOpId = null;
+          tbody.querySelectorAll('.row-operator.op-selected').forEach(tr => {
+            tr.classList.remove('op-selected');
+          });
+          saveState();
+          renderStatsTable();
+          return;
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          const opId = el.getAttribute('data-op-id');
+          const op = state.operators.find(o => o.id === opId);
+          if (op) {
+            el.textContent = op.name;
+          }
+          closeOpNameEditing(el);
+          el.blur();
+          selectedOpId = null;
+          tbody.querySelectorAll('.row-operator.op-selected').forEach(tr => {
+            tr.classList.remove('op-selected');
+          });
+          return;
+        }
+      }
+
+      // Previne quebras de linha com Enter na legenda
+      if (el.getAttribute('data-action') === 'edit-leg' && e.key === 'Enter') {
+        e.preventDefault();
+        el.blur();
+        return;
+      }
+
+      // Navegação por teclado nas células de turno
       const cell = e.target.closest('.cell-shift, .cell-sub-shift');
       if (cell) {
         handleCellKeyDown(e, cell);
@@ -1553,19 +1640,11 @@
         renderStatsTable();
       } else if (action === 'edit-name') {
         op.name = el.textContent.trim();
+        closeOpNameEditing(el);
         saveState();
         renderStatsTable();
       }
     }, true);
-
-    // Previne quebras de linha com Enter em nomes/legendas
-    tbody.addEventListener('keydown', (e) => {
-      const el = e.target;
-      if (el.hasAttribute('contenteditable') && e.key === 'Enter') {
-        e.preventDefault();
-        el.blur();
-      }
-    });
 
     // 10. Popover de Seleção de Turno
     shiftPopover.addEventListener('click', (e) => {

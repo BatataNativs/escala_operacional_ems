@@ -1350,6 +1350,24 @@ body.dark-theme .obs-row:hover {
   border-right: 1px solid var(--border-light);
   white-space: nowrap;
   text-align: center;
+  vertical-align: middle;
+}
+
+th.col-stat-briefing {
+  padding: 3px 4px;
+  white-space: normal;
+}
+
+.th-stacked {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0px;
+  font-size: 7.5px;
+  line-height: 1.15;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
 }
 
 .stats-table th:last-child {

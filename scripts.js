@@ -619,16 +619,9 @@
     const teamCeilHours = Math.ceil(teamAverageHours);
     const avgTeamActualHours = totalOps > 0 ? (totalTeamHours / totalOps) : 0;
 
-    // Rodapé de Totais Gerais da Equipe
+    // Rodapé de Totais Gerais da Equipe (linha TOT removida a pedido do usuário)
     if (statsTfoot) {
-      statsTfoot.innerHTML = `<tr>
-        <td class="col-stat-leg"><strong>TOT</strong></td>
-        <td class="col-stat-op"><strong>Total / Média Equipe</strong></td>
-        <td class="col-stat-shifts"><strong>${totalTeamShifts}</strong></td>
-        <td class="col-stat-hours" title="Média executada: ${formatHours(avgTeamActualHours)} | Média prevista oficial: ${teamAverageHours.toFixed(2).replace('.', ',')}h (${teamCeilHours}h)"><strong>${formatHours(avgTeamActualHours)}</strong> <span style="font-size:10px; color:var(--text-muted);">(${teamCeilHours}h)</span></td>
-        <td class="col-stat-e5"><strong>${formatCurrency(totalTeamE5)}</strong></td>
-        <td class="col-stat-e10"><strong>${formatCurrency(totalTeamE10)}</strong></td>
-      </tr>`;
+      statsTfoot.innerHTML = '';
     }
 
     if (statsTeamAverage) {

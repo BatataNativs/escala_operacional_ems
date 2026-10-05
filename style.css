@@ -1603,9 +1603,29 @@ body.dark-theme .stats-table tr:hover td {
   color: #000000;
 }
 
+body.dark-theme .col-stat-leg {
+  color: #ffffff;
+}
+
+body.dark-theme .col-stat-op {
+  color: #ffffff;
+}
+
+body.dark-theme .col-stat-shifts {
+  color: #ffffff;
+}
+
+body.dark-theme .col-stat-ctop {
+  color: #ffffff;
+}
+
 body.dark-theme .col-stat-briefing,
 body.dark-theme .col-stat-pimo,
 body.dark-theme .col-stat-met {
+  color: #ffffff;
+}
+
+body.dark-theme .col-stat-risaer {
   color: #ffffff;
 }
 
@@ -1617,26 +1637,26 @@ body.dark-theme .col-stat-met {
 }
 
 body.dark-theme .col-stat-total {
-  color: #60a5fa;
+  color: #74adf4;
   background-color: rgba(96, 165, 250, 0.08);
 }
 
 .col-stat-e5 {
   font-weight: 700;
-  color: #b45309;
+  color: #15803d;
 }
 
 body.dark-theme .col-stat-e5 {
-  color: #fde68a;
+  color: #86efac;
 }
 
 .col-stat-e10 {
   font-weight: 700;
-  color: #15803d;
+  color: #b45309; 
 }
 
 body.dark-theme .col-stat-e10 {
-  color: #86efac;
+  color: #fde68a; 
 }
 
 .text-muted-stat {

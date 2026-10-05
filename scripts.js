@@ -385,21 +385,37 @@
       // 1. Linha Amarela Principal do Operador
       html += `<tr class="row-operator${rowDimmed}${rowMatched}${rowSelected}" data-op-id="${safeOpId}">`;
       
-      // Coluna Legenda (A, B, C...)
-      html += `<td class="cell-leg-val col-leg" 
-                  contenteditable="${currentMode === 'edit'}" 
-                  data-action="edit-leg" 
-                  data-op-id="${safeOpId}" 
-                  spellcheck="false">${escapeHtml(op.leg)}</td>`;
+      // Coluna Legenda (A, B, C...) com setas brancas modernas ao selecionar
+      html += `<td class="cell-leg-val col-leg" data-op-id="${safeOpId}">
+        <div class="leg-container">
+          <span class="leg-text" 
+                contenteditable="${currentMode === 'edit'}" 
+                data-action="edit-leg" 
+                data-op-id="${safeOpId}" 
+                spellcheck="false">${escapeHtml(op.leg)}</span>
+          <div class="leg-move-arrows no-print">
+            <button type="button" class="btn-leg-arrow btn-leg-up" data-action="move-up" data-op-id="${safeOpId}" title="Mover para cima" ${opIndex === 0 ? 'disabled' : ''} aria-label="Mover operador para cima">
+              <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
+                <path d="M6 1L11 7H1L6 1Z" fill="#ffffff" stroke="#ffffff" stroke-width="1.2" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <button type="button" class="btn-leg-arrow btn-leg-down" data-action="move-down" data-op-id="${safeOpId}" title="Mover para baixo" ${opIndex === state.operators.length - 1 ? 'disabled' : ''} aria-label="Mover operador para baixo">
+              <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
+                <path d="M6 7L1 1H11L6 7Z" fill="#ffffff" stroke="#ffffff" stroke-width="1.2" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </td>`;
 
-      // Coluna Nome do Operador (O X de excluir só aparece ao clicar na célula; segurar permite arrastar)
-      html += `<td class="cell-op-name col-name" data-op-id="${safeOpId}" title="${currentMode === 'edit' ? 'Clique para selecionar ou segure para arrastar' : ''}">
+      // Coluna Nome do Operador (1 clique seleciona • Duplo clique edita o nome)
+      html += `<td class="cell-op-name col-name" data-op-id="${safeOpId}" title="${currentMode === 'edit' ? '1 clique seleciona • Duplo clique edita o nome' : ''}">
         <div class="name-container">
           <div class="op-actions-group no-print">
             <button class="btn-del-op" data-action="del-op" data-op-id="${safeOpId}" title="Excluir operador">&times;</button>
           </div>
           <span class="op-name-text" 
-                contenteditable="${currentMode === 'edit'}" 
+                contenteditable="false" 
                 data-action="edit-name" 
                 data-op-id="${safeOpId}" 
                 spellcheck="false">${escapeHtml(op.name)}</span>
@@ -672,18 +688,18 @@
     }
   }
 
-  function reorderOperator(fromId, toId, placeBefore) {
-    if (currentMode !== 'edit' || !fromId || !toId || fromId === toId) return;
-    const fromIndex = state.operators.findIndex(o => o.id === fromId);
-    const toIndex = state.operators.findIndex(o => o.id === toId);
-    if (fromIndex === -1 || toIndex === -1) return;
+  function moveOperator(opId, direction) {
+    if (currentMode !== 'edit' || !opId) return;
+    const index = state.operators.findIndex(o => o.id === opId);
+    if (index === -1) return;
 
-    const [movedOp] = state.operators.splice(fromIndex, 1);
-    let newIndex = state.operators.findIndex(o => o.id === toId);
-    if (!placeBefore) newIndex += 1;
-    state.operators.splice(newIndex, 0, movedOp);
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= state.operators.length) return;
 
-    selectedOpId = fromId;
+    const [movedOp] = state.operators.splice(index, 1);
+    state.operators.splice(targetIndex, 0, movedOp);
+
+    selectedOpId = opId;
     saveState();
     renderBody();
     renderStatsTable();
@@ -1241,8 +1257,8 @@
       if (!shiftPopover.contains(e.target) && !e.target.classList.contains('cell-shift') && !e.target.classList.contains('cell-sub-shift')) {
         closeShiftPopover();
       }
-      // Se clicou fora da célula do nome e do botão X, remove o destaque e o X
-      if (!e.target.closest('.cell-op-name') && !e.target.closest('.btn-del-op')) {
+      // Se clicou fora da célula do nome, da legenda e dos botões de ação, remove a seleção
+      if (!e.target.closest('.cell-op-name') && !e.target.closest('.cell-leg-val') && !e.target.closest('.btn-del-op')) {
         if (selectedOpId) {
           selectedOpId = null;
           tbody.querySelectorAll('.row-operator.op-selected').forEach(tr => {
@@ -1382,133 +1398,64 @@
       renderStatsTable();
     });
 
-    // 8. Reordenação por Toque/Clique Prolongado (Hold & Drag) e Seleção do Operador
-    let opHoldTimer = null;
-    let opDragActive = false;
-    let draggedOpId = null;
-    let opStartX = 0;
-    let opStartY = 0;
-    let currentDropTarget = null;
-    let suppressClickUntil = 0;
-
-    // Previne drag nativo do navegador nas células de operador
-    tbody.addEventListener('dragstart', (e) => {
-      if (e.target.closest('.cell-op-name')) {
-        e.preventDefault();
-      }
-    });
-
-    tbody.addEventListener('pointerdown', (e) => {
-      if (currentMode !== 'edit') return;
-      if (e.pointerType === 'mouse' && e.button !== 0) return;
-
-      const cellName = e.target.closest('.cell-op-name');
-      if (!cellName || e.target.closest('.btn-del-op')) return;
-
-      const opId = cellName.getAttribute('data-op-id');
+    // 8. Edição do Nome do Operador via Duplo Clique / Duplo Toque
+    function enableOpNameEditing(span) {
+      if (currentMode !== 'edit' || !span) return;
+      const opId = span.getAttribute('data-op-id');
       if (!opId) return;
 
-      opStartX = e.clientX;
-      opStartY = e.clientY;
-      draggedOpId = opId;
-      currentDropTarget = null;
-
-      opHoldTimer = setTimeout(() => {
-        opDragActive = true;
-        document.body.classList.add('op-is-dragging');
-
-        // Limpa seleção de texto e remove foco de edição
-        window.getSelection()?.removeAllRanges();
-        if (document.activeElement && document.activeElement.blur) {
-          document.activeElement.blur();
-        }
-
-        // Destaca a linha do operador com contorno bem visível
-        const tr = tbody.querySelector(`.row-operator[data-op-id="${opId}"]`);
-        if (tr) {
-          tr.classList.add('op-row-dragging');
-        }
-
-        if (navigator.vibrate) {
-          navigator.vibrate(35);
-        }
-      }, 220);
-    });
-
-    window.addEventListener('pointermove', (e) => {
-      if (opHoldTimer && !opDragActive) {
-        const dist = Math.hypot(e.clientX - opStartX, e.clientY - opStartY);
-        if (dist > 7) {
-          clearTimeout(opHoldTimer);
-          opHoldTimer = null;
-        }
-      }
-
-      if (opDragActive && draggedOpId) {
-        // Limpa indicadores anteriores de posição
-        tbody.querySelectorAll('.row-operator.op-drag-target-above, .row-operator.op-drag-target-below').forEach(el => {
-          el.classList.remove('op-drag-target-above', 'op-drag-target-below');
-        });
-
-        // Encontra a linha de operador sob a posição atual do ponteiro
-        const hoveredEl = document.elementFromPoint(e.clientX, e.clientY);
-        const targetRow = hoveredEl ? hoveredEl.closest('.row-operator') : null;
-
-        if (targetRow) {
-          const targetOpId = targetRow.getAttribute('data-op-id');
-          if (targetOpId && targetOpId !== draggedOpId) {
-            const rect = targetRow.getBoundingClientRect();
-            const placeBefore = e.clientY < (rect.top + rect.height / 2);
-            if (placeBefore) {
-              targetRow.classList.add('op-drag-target-above');
-            } else {
-              targetRow.classList.add('op-drag-target-below');
-            }
-            currentDropTarget = { targetOpId, placeBefore };
-          } else {
-            currentDropTarget = null;
-          }
+      selectedOpId = opId;
+      tbody.querySelectorAll('.row-operator').forEach(tr => {
+        if (tr.getAttribute('data-op-id') === opId) {
+          tr.classList.add('op-selected');
         } else {
-          currentDropTarget = null;
+          tr.classList.remove('op-selected');
         }
-      }
-    }, { passive: true });
+      });
 
-    function finishOpDrag() {
-      if (opHoldTimer) {
-        clearTimeout(opHoldTimer);
-        opHoldTimer = null;
-      }
+      span.contentEditable = 'true';
+      span.classList.add('is-editing');
+      span.focus();
 
-      if (opDragActive) {
-        opDragActive = false;
-        document.body.classList.remove('op-is-dragging');
-
-        // Remove destaques visuais das linhas
-        tbody.querySelectorAll('.row-operator').forEach(tr => {
-          tr.classList.remove('op-row-dragging', 'op-drag-target-above', 'op-drag-target-below');
-        });
-
-        if (currentDropTarget && currentDropTarget.targetOpId && currentDropTarget.targetOpId !== draggedOpId) {
-          reorderOperator(draggedOpId, currentDropTarget.targetOpId, currentDropTarget.placeBefore);
-        }
-
-        currentDropTarget = null;
-        draggedOpId = null;
-        suppressClickUntil = Date.now() + 300;
-      } else {
-        draggedOpId = null;
-      }
+      // Posiciona o cursor no final do texto
+      try {
+        const range = document.createRange();
+        const sel = window.getSelection();
+        range.selectNodeContents(span);
+        range.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } catch (_) {}
     }
 
-    window.addEventListener('pointerup', finishOpDrag);
-    window.addEventListener('pointercancel', finishOpDrag);
+    // Duplo clique no Desktop para abrir edição de nome
+    tbody.addEventListener('dblclick', (e) => {
+      if (currentMode !== 'edit') return;
+      const cellName = e.target.closest('.cell-op-name');
+      if (cellName) {
+        const span = cellName.querySelector('.op-name-text');
+        if (span) {
+          enableOpNameEditing(span);
+        }
+      }
+    });
 
-    // 9. Ações no Corpo da Tabela (Delegation de Cliques)
+    // 9. Ações no Corpo da Tabela (Delegation de Cliques e Duplo Toque)
+    let lastOpTapTime = 0;
+    let lastOpTapId = null;
+
     tbody.addEventListener('click', (e) => {
-      if (Date.now() < suppressClickUntil) {
-        e.stopPropagation();
-        e.preventDefault();
+      // Botão de mover operador para cima (seta na legenda)
+      const btnUp = e.target.closest('[data-action="move-up"]');
+      if (btnUp && !btnUp.disabled) {
+        moveOperator(btnUp.getAttribute('data-op-id'), -1);
+        return;
+      }
+
+      // Botão de mover operador para baixo (seta na legenda)
+      const btnDown = e.target.closest('[data-action="move-down"]');
+      if (btnDown && !btnDown.disabled) {
+        moveOperator(btnDown.getAttribute('data-op-id'), 1);
         return;
       }
 
@@ -1519,11 +1466,48 @@
         return;
       }
 
-      // Clique na célula do nome do operador: ativa/destaca o operador e mostra o X vermelho
+      // Clique ou Duplo Toque na célula do nome do operador
       const cellName = e.target.closest('.cell-op-name');
       if (cellName && currentMode === 'edit') {
         const opId = cellName.getAttribute('data-op-id');
-        if (opId) {
+        const span = cellName.querySelector('.op-name-text');
+
+        // Se já está em modo de edição, permite posicionar o cursor normalmente
+        if (span && span.contentEditable === 'true') {
+          return;
+        }
+
+        const now = Date.now();
+        // Detecção de Duplo Toque / Duplo Clique (funciona em Desktop, Mobile e Tablet)
+        if (lastOpTapId === opId && (now - lastOpTapTime) < 380) {
+          lastOpTapTime = 0;
+          lastOpTapId = null;
+          if (span) {
+            enableOpNameEditing(span);
+          }
+          return;
+        }
+
+        // 1 Único Clique: apenas seleciona a célula (exibe X vermelho e setas na legenda)
+        lastOpTapTime = now;
+        lastOpTapId = opId;
+        selectedOpId = opId;
+
+        tbody.querySelectorAll('.row-operator').forEach(tr => {
+          if (tr.getAttribute('data-op-id') === opId) {
+            tr.classList.add('op-selected');
+          } else {
+            tr.classList.remove('op-selected');
+          }
+        });
+        return;
+      }
+
+      // Clique na célula da legenda também seleciona o operador
+      const cellLeg = e.target.closest('.cell-leg-val');
+      if (cellLeg && currentMode === 'edit') {
+        const opId = cellLeg.getAttribute('data-op-id');
+        if (opId && selectedOpId !== opId) {
           selectedOpId = opId;
           tbody.querySelectorAll('.row-operator').forEach(tr => {
             if (tr.getAttribute('data-op-id') === opId) {
@@ -1533,6 +1517,7 @@
             }
           });
         }
+        return;
       }
 
       // Clique nas células de turno

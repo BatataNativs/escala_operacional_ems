@@ -1454,35 +1454,22 @@ body.dark-theme .stats-table tr:hover td {
   white-space: nowrap;
 }
 
-.col-stat-ctop {
-  font-weight: 600;
-}
-
-.col-stat-briefing {
-  font-weight: 500;
-  color: var(--text-muted);
-}
-
+.col-stat-ctop,
 .col-stat-risaer {
   font-weight: 600;
 }
 
-.col-stat-pimo {
-  font-weight: 600;
-  color: #0284c7;
-}
-
-body.dark-theme .col-stat-pimo {
-  color: #38bdf8;
-}
-
+.col-stat-briefing,
+.col-stat-pimo,
 .col-stat-met {
   font-weight: 600;
-  color: #0d9488;
+  color: #000000;
 }
 
+body.dark-theme .col-stat-briefing,
+body.dark-theme .col-stat-pimo,
 body.dark-theme .col-stat-met {
-  color: #2dd4bf;
+  color: #ffffff;
 }
 
 /* Coluna C(total) com destaque especial */

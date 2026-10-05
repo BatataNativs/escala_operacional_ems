@@ -607,8 +607,8 @@
         <td class="col-stat-ctop">${formatHours(stats.cTop)}</td>
         <td class="col-stat-briefing">${formatHours(stats.briefing)}</td>
         <td class="col-stat-risaer">${formatHours(stats.risaerHours)}</td>
-        <td class="col-stat-pimo">${stats.pimo > 0 ? formatHours(stats.pimo) : '<span class="text-muted-stat">0,00h</span>'}</td>
-        <td class="col-stat-met">${stats.instrucaoMet > 0 ? formatHours(stats.instrucaoMet) : '<span class="text-muted-stat">0,00h</span>'}</td>
+        <td class="col-stat-pimo">${formatHours(stats.pimo)}</td>
+        <td class="col-stat-met">${formatHours(stats.instrucaoMet)}</td>
         <td class="col-stat-total"><strong>${formatHours(stats.totalHours)}</strong></td>
         <td class="col-stat-e5">${formatCurrency(stats.etapa5x)}</td>
         <td class="col-stat-e10">${formatCurrency(stats.etapa10x)}</td>

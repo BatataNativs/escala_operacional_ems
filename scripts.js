@@ -602,9 +602,14 @@
 
       rowsHtml += `<tr class="row-stat-operator${rowDimmed}${rowMatched}" data-op-id="${escapeHtml(op.id)}">
         <td class="col-stat-leg"><span class="stat-leg-badge">${escapeHtml(op.leg)}</span></td>
-        <td class="col-stat-op">${escapeHtml(op.name)}</td>
+        <td class="col-stat-op" title="${escapeHtml(op.name)}">${escapeHtml(op.name)}</td>
         <td class="col-stat-shifts">${stats.totalShifts}${breakdownText}</td>
-        <td class="col-stat-hours" title="${tooltipText}">${formatHours(stats.totalHours)}${extrasTag}</td>
+        <td class="col-stat-ctop">${formatHours(stats.cTop)}</td>
+        <td class="col-stat-briefing">${formatHours(stats.briefing)}</td>
+        <td class="col-stat-risaer">${formatHours(stats.risaerHours)}</td>
+        <td class="col-stat-pimo">${stats.pimo > 0 ? formatHours(stats.pimo) : '<span class="text-muted-stat">0,00h</span>'}</td>
+        <td class="col-stat-met">${stats.instrucaoMet > 0 ? formatHours(stats.instrucaoMet) : '<span class="text-muted-stat">0,00h</span>'}</td>
+        <td class="col-stat-total"><strong>${formatHours(stats.totalHours)}</strong></td>
         <td class="col-stat-e5">${formatCurrency(stats.etapa5x)}</td>
         <td class="col-stat-e10">${formatCurrency(stats.etapa10x)}</td>
       </tr>`;

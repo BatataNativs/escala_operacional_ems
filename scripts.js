@@ -704,14 +704,14 @@
     }
 
     if (statsTeamAverage) {
-      statsTeamAverage.textContent = `Média: ${teamAverageHours.toFixed(2).replace('.', ',')}h (${teamCeilHours}h) / op`;
+      statsTeamAverage.textContent = `Média: ${teamAverageHours.toFixed(2).replace('.', ',')}h (${teamCeilHours}h) / OPR`;
     }
 
     if (statsMemorialFooter) {
       const formulaPimo = totalTeamPimo > 0 ? ` + ${totalTeamPimo}h PIMO` : '';
       const formulaRisaer = totalTeamR > 0 ? ` + (${totalTeamR}×24h RISAER)` : '';
       const formulaMet = totalTeamInstrucaoMet > 0 ? ` + (${totalTeamInstrucaoMet}h MET / ${totalOps})` : '';
-      statsMemorialFooter.innerHTML = `<span><strong>Memorial oficial:</strong> [(${totalDays}×17h + ${totalDays}×0,75h${formulaRisaer}${formulaPimo}) / ${totalOps}${formulaMet}] = <strong>${teamAverageHours.toFixed(2).replace('.', ',')}h</strong> &rarr; <strong>${teamCeilHours}h</strong> (arredondar sempre para o inteiro superior)</span>`;
+      statsMemorialFooter.innerHTML = `<span><strong>Memorial de cálculo:</strong> [(${totalDays}×17h + ${totalDays}×0,75h${formulaRisaer}${formulaPimo}) / ${totalOps}${formulaMet}] = <strong>${teamAverageHours.toFixed(2).replace('.', ',')}h</strong> &rarr; <strong>${teamCeilHours}h</strong> (arredondar sempre para o inteiro superior)</span>`;
     }
   }
 
@@ -1255,12 +1255,24 @@
     // 1. Mudança de Mês, Ano e Unidade
     selectMonth.addEventListener('change', (e) => {
       const newMonth = parseInt(e.target.value, 10);
+      if (hasUnsavedChanges) {
+        if (!confirm('Você possui alterações não salvas neste mês. Deseja mudar de mês e descartá-las?')) {
+          e.target.value = state.month;
+          return;
+        }
+      }
       loadMonthFromCloud(state.year, newMonth, state.sector);
     });
 
-    inputYear.addEventListener('change', (e) => {
+        inputYear.addEventListener('change', (e) => {
       const y = parseInt(e.target.value, 10);
       if (y >= 2000 && y <= 2100) {
+        if (hasUnsavedChanges) {
+          if (!confirm('Você possui alterações não salvas neste mês. Deseja mudar de ano e descartá-las?')) {
+            e.target.value = state.year;
+            return;
+          }
+        }
         loadMonthFromCloud(y, state.month, state.sector);
       }
     });

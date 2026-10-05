@@ -45,9 +45,10 @@ export async function onRequestGet(context) {
       dbOperators = refreshed.results;
     }
 
-    // 3. Se a escala do mês ainda não existir, cria a entrada inicial
+    // 3. Se a escala do mês ainda não existir, cria a entrada inicial vazia
     let observations = [];
     if (!scheduleRecord) {
+      // Apenas Outubro/2026 (mês 9) no setup inicial do banco de dados tem as observações originais da planilha
       const defaultObs = (year === 2026 && month === 9) ? [
         '1S Hiremar: 08T, 13T e 31T;',
         '2S Marisol: 16T, 17M e 22T;',
@@ -62,7 +63,7 @@ export async function onRequestGet(context) {
 
       observations = defaultObs;
 
-      // Se for Outubro/2026, popula com os turnos iniciais da escala original
+      // Se for Outubro/2026, popula com os turnos iniciais da escala original; novos meses vêm 100% vazios
       if (year === 2026 && month === 9) {
         const initialShifts = {
           'op-1': { 1: 'M', 2: 'M', 5: 'M', 6: 'M', 7: 'M', 8: 'M', 9: 'M', 12: 'M', 13: 'M', 14: 'M', 15: 'M', 16: 'M', 19: 'M', 20: 'M', 21: 'M', 22: 'M', 23: 'M', 26: 'M', 27: 'M', 28: 'M', 29: 'M', 30: 'M' },

@@ -74,6 +74,7 @@
   let state = loadState();
   let currentMode = 'edit'; // 'edit' ou 'view'
   let activeCell = null;
+  let selectedOpId = null; // Operador selecionado cujo X de excluir fica visivel
 
   // Elementos do DOM
   const selectMonth = document.getElementById('select-month');
@@ -379,9 +380,10 @@
       const rowMatched = isMatch ? ' operator-matched' : '';
 
       const safeOpId = escapeHtml(op.id);
+      const rowSelected = (currentMode === 'edit' && op.id === selectedOpId) ? ' op-selected' : '';
 
       // 1. Linha Amarela Principal do Operador
-      html += `<tr class="row-operator${rowDimmed}${rowMatched}" data-op-id="${safeOpId}">`;
+      html += `<tr class="row-operator${rowDimmed}${rowMatched}${rowSelected}" data-op-id="${safeOpId}">`;
       
       // Coluna Legenda (A, B, C...)
       html += `<td class="cell-leg-val col-leg" 
@@ -390,21 +392,11 @@
                   data-op-id="${safeOpId}" 
                   spellcheck="false">${escapeHtml(op.leg)}</td>`;
 
-      // Coluna Nome do Operador (Ações de mover e excluir no início esquerdo da célula, longe dos dias 1 e 2)
-      html += `<td class="cell-op-name col-name">
+      // Coluna Nome do Operador (O X de excluir só aparece ao clicar na célula; segurar permite arrastar)
+      html += `<td class="cell-op-name col-name" data-op-id="${safeOpId}" title="${currentMode === 'edit' ? 'Clique para selecionar ou segure para arrastar' : ''}">
         <div class="name-container">
           <div class="op-actions-group no-print">
             <button class="btn-del-op" data-action="del-op" data-op-id="${safeOpId}" title="Excluir operador">&times;</button>
-            <button class="btn-move-op btn-move-up" data-action="move-up" data-op-id="${safeOpId}" title="Mover para cima" ${opIndex === 0 ? 'disabled' : ''}>
-              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="18 15 12 9 6 15"></polyline>
-              </svg>
-            </button>
-            <button class="btn-move-op btn-move-down" data-action="move-down" data-op-id="${safeOpId}" title="Mover para baixo" ${opIndex === state.operators.length - 1 ? 'disabled' : ''}>
-              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="6 9 12 15 18 9"></polyline>
-              </svg>
-            </button>
           </div>
           <span class="op-name-text" 
                 contenteditable="${currentMode === 'edit'}" 
@@ -671,25 +663,27 @@
     if (!op) return;
     if (confirm(`Deseja remover o operador "${op.name}" da escala?`)) {
       state.operators = state.operators.filter(o => o.id !== opId);
+      if (selectedOpId === opId) {
+        selectedOpId = null;
+      }
       saveState();
       renderBody();
       renderStatsTable();
     }
   }
 
-  function moveOperator(opId, direction) {
-    if (currentMode !== 'edit') return;
-    const index = state.operators.findIndex(o => o.id === opId);
-    if (index === -1) return;
+  function reorderOperator(fromId, toId, placeBefore) {
+    if (currentMode !== 'edit' || !fromId || !toId || fromId === toId) return;
+    const fromIndex = state.operators.findIndex(o => o.id === fromId);
+    const toIndex = state.operators.findIndex(o => o.id === toId);
+    if (fromIndex === -1 || toIndex === -1) return;
 
-    const targetIndex = index + direction;
-    if (targetIndex < 0 || targetIndex >= state.operators.length) return;
+    const [movedOp] = state.operators.splice(fromIndex, 1);
+    let newIndex = state.operators.findIndex(o => o.id === toId);
+    if (!placeBefore) newIndex += 1;
+    state.operators.splice(newIndex, 0, movedOp);
 
-    // Inverte a ordem no array dos operadores
-    const temp = state.operators[index];
-    state.operators[index] = state.operators[targetIndex];
-    state.operators[targetIndex] = temp;
-
+    selectedOpId = fromId;
     saveState();
     renderBody();
     renderStatsTable();
@@ -1247,6 +1241,15 @@
       if (!shiftPopover.contains(e.target) && !e.target.classList.contains('cell-shift') && !e.target.classList.contains('cell-sub-shift')) {
         closeShiftPopover();
       }
+      // Se clicou fora da célula do nome e do botão X, remove o destaque e o X
+      if (!e.target.closest('.cell-op-name') && !e.target.closest('.btn-del-op')) {
+        if (selectedOpId) {
+          selectedOpId = null;
+          tbody.querySelectorAll('.row-operator.op-selected').forEach(tr => {
+            tr.classList.remove('op-selected');
+          });
+        }
+      }
     });
 
     // 6. Exportar e Importar JSON
@@ -1379,8 +1382,136 @@
       renderStatsTable();
     });
 
-    // 8. Ações no Corpo da Tabela (Delegation)
+    // 8. Reordenação por Toque/Clique Prolongado (Hold & Drag) e Seleção do Operador
+    let opHoldTimer = null;
+    let opDragActive = false;
+    let draggedOpId = null;
+    let opStartX = 0;
+    let opStartY = 0;
+    let currentDropTarget = null;
+    let suppressClickUntil = 0;
+
+    // Previne drag nativo do navegador nas células de operador
+    tbody.addEventListener('dragstart', (e) => {
+      if (e.target.closest('.cell-op-name')) {
+        e.preventDefault();
+      }
+    });
+
+    tbody.addEventListener('pointerdown', (e) => {
+      if (currentMode !== 'edit') return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+      const cellName = e.target.closest('.cell-op-name');
+      if (!cellName || e.target.closest('.btn-del-op')) return;
+
+      const opId = cellName.getAttribute('data-op-id');
+      if (!opId) return;
+
+      opStartX = e.clientX;
+      opStartY = e.clientY;
+      draggedOpId = opId;
+      currentDropTarget = null;
+
+      opHoldTimer = setTimeout(() => {
+        opDragActive = true;
+        document.body.classList.add('op-is-dragging');
+
+        // Limpa seleção de texto e remove foco de edição
+        window.getSelection()?.removeAllRanges();
+        if (document.activeElement && document.activeElement.blur) {
+          document.activeElement.blur();
+        }
+
+        // Destaca a linha do operador com contorno bem visível
+        const tr = tbody.querySelector(`.row-operator[data-op-id="${opId}"]`);
+        if (tr) {
+          tr.classList.add('op-row-dragging');
+        }
+
+        if (navigator.vibrate) {
+          navigator.vibrate(35);
+        }
+      }, 220);
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      if (opHoldTimer && !opDragActive) {
+        const dist = Math.hypot(e.clientX - opStartX, e.clientY - opStartY);
+        if (dist > 7) {
+          clearTimeout(opHoldTimer);
+          opHoldTimer = null;
+        }
+      }
+
+      if (opDragActive && draggedOpId) {
+        // Limpa indicadores anteriores de posição
+        tbody.querySelectorAll('.row-operator.op-drag-target-above, .row-operator.op-drag-target-below').forEach(el => {
+          el.classList.remove('op-drag-target-above', 'op-drag-target-below');
+        });
+
+        // Encontra a linha de operador sob a posição atual do ponteiro
+        const hoveredEl = document.elementFromPoint(e.clientX, e.clientY);
+        const targetRow = hoveredEl ? hoveredEl.closest('.row-operator') : null;
+
+        if (targetRow) {
+          const targetOpId = targetRow.getAttribute('data-op-id');
+          if (targetOpId && targetOpId !== draggedOpId) {
+            const rect = targetRow.getBoundingClientRect();
+            const placeBefore = e.clientY < (rect.top + rect.height / 2);
+            if (placeBefore) {
+              targetRow.classList.add('op-drag-target-above');
+            } else {
+              targetRow.classList.add('op-drag-target-below');
+            }
+            currentDropTarget = { targetOpId, placeBefore };
+          } else {
+            currentDropTarget = null;
+          }
+        } else {
+          currentDropTarget = null;
+        }
+      }
+    }, { passive: true });
+
+    function finishOpDrag() {
+      if (opHoldTimer) {
+        clearTimeout(opHoldTimer);
+        opHoldTimer = null;
+      }
+
+      if (opDragActive) {
+        opDragActive = false;
+        document.body.classList.remove('op-is-dragging');
+
+        // Remove destaques visuais das linhas
+        tbody.querySelectorAll('.row-operator').forEach(tr => {
+          tr.classList.remove('op-row-dragging', 'op-drag-target-above', 'op-drag-target-below');
+        });
+
+        if (currentDropTarget && currentDropTarget.targetOpId && currentDropTarget.targetOpId !== draggedOpId) {
+          reorderOperator(draggedOpId, currentDropTarget.targetOpId, currentDropTarget.placeBefore);
+        }
+
+        currentDropTarget = null;
+        draggedOpId = null;
+        suppressClickUntil = Date.now() + 300;
+      } else {
+        draggedOpId = null;
+      }
+    }
+
+    window.addEventListener('pointerup', finishOpDrag);
+    window.addEventListener('pointercancel', finishOpDrag);
+
+    // 9. Ações no Corpo da Tabela (Delegation de Cliques)
     tbody.addEventListener('click', (e) => {
+      if (Date.now() < suppressClickUntil) {
+        e.stopPropagation();
+        e.preventDefault();
+        return;
+      }
+
       // Botão de excluir operador (X vermelho)
       const btnDel = e.target.closest('[data-action="del-op"]');
       if (btnDel) {
@@ -1388,18 +1519,20 @@
         return;
       }
 
-      // Botão de mover operador para cima
-      const btnUp = e.target.closest('[data-action="move-up"]');
-      if (btnUp && !btnUp.disabled) {
-        moveOperator(btnUp.getAttribute('data-op-id'), -1);
-        return;
-      }
-
-      // Botão de mover operador para baixo
-      const btnDown = e.target.closest('[data-action="move-down"]');
-      if (btnDown && !btnDown.disabled) {
-        moveOperator(btnDown.getAttribute('data-op-id'), 1);
-        return;
+      // Clique na célula do nome do operador: ativa/destaca o operador e mostra o X vermelho
+      const cellName = e.target.closest('.cell-op-name');
+      if (cellName && currentMode === 'edit') {
+        const opId = cellName.getAttribute('data-op-id');
+        if (opId) {
+          selectedOpId = opId;
+          tbody.querySelectorAll('.row-operator').forEach(tr => {
+            if (tr.getAttribute('data-op-id') === opId) {
+              tr.classList.add('op-selected');
+            } else {
+              tr.classList.remove('op-selected');
+            }
+          });
+        }
       }
 
       // Clique nas células de turno

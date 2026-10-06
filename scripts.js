@@ -813,7 +813,7 @@
 
     state.operators.push(newOp);
     saveState();
-    recordLastChange(`Operador ${newOp.name} adicionado`);
+    recordLastChange(`Operador [${newOp.name}] foi adicionado`);
     renderBody();
     renderStatsTable();
 
@@ -837,7 +837,7 @@
         selectedOpId = null;
       }
       saveState();
-      recordLastChange(`Operador ${opName} excluído`);
+      recordLastChange(`Operador [${opName}] foi excluído`);
       renderBody();
       renderStatsTable();
     }
@@ -856,7 +856,7 @@
 
     selectedOpId = opId;
     saveState();
-    recordLastChange(`Operador ${movedOp.name} movido para ${direction < 0 ? 'cima' : 'baixo'}`);
+    recordLastChange(`Operador [${movedOp.name}] foi movido para ${direction < 0 ? 'cima' : 'baixo'}`);
     renderBody();
     renderStatsTable();
   }
@@ -1323,6 +1323,22 @@
     }
   }
 
+  function getShiftFullName(val) {
+    if (!val) return '';
+    const code = val.trim().toUpperCase();
+    if (code === 'M') return 'Manhã';
+    if (code === 'T') return 'Tarde';
+    if (code === 'R') return 'RISAER';
+    if (code === 'F') return 'Folga';
+    return code;
+  }
+
+  function formatShiftDescriptor(day, val) {
+    const dayStr = String(day).padStart(2, '0');
+    const name = getShiftFullName(val);
+    return name ? `${dayStr} ${name}` : dayStr;
+  }
+
   // =========================================================================
   // EDIÇÃO DE CÉLULAS & ATALHOS DE TECLADO
   // =========================================================================
@@ -1340,9 +1356,11 @@
 
     const opName = op.name || (currentUser?.name || 'Operador');
     if (!val) {
-      recordLastChange(`Turno ${day}${oldVal} excluído`);
+      const shiftDesc = formatShiftDescriptor(day, oldVal);
+      recordLastChange(`Turno [${shiftDesc}] de [${opName}] foi excluído`);
     } else {
-      recordLastChange(`Turno ${day}${val} adicionado para ${opName}`);
+      const shiftDesc = formatShiftDescriptor(day, val);
+      recordLastChange(`Turno [${shiftDesc}] foi adicionado para [${opName}]`);
     }
 
     saveState();
@@ -1884,7 +1902,7 @@
             const newName = el.textContent.trim();
             if (op.name !== newName) {
               op.name = newName;
-              recordLastChange(`Operador renomeado para ${op.name}`);
+              recordLastChange(`Operador renomeado para [${op.name}]`);
             }
           }
           closeOpNameEditing(el);
@@ -1952,7 +1970,7 @@
           op.name = newName;
           closeOpNameEditing(el);
           saveState();
-          recordLastChange(`Operador renomeado para ${op.name}`);
+          recordLastChange(`Operador renomeado para [${op.name}]`);
           renderStatsTable();
         } else {
           closeOpNameEditing(el);

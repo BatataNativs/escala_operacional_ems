@@ -1310,6 +1310,11 @@
 
     // 4. Imprimir / Salvar em PDF
     btnPrint.addEventListener('click', () => {
+      if (selectedOpId) {
+        selectedOpId = null;
+        renderBody();
+      }
+      hideShiftPopover();
       window.print();
     });
 

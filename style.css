@@ -1,10 +1,9 @@
 /* ==========================================================================
    SISTEMA DE ESCALA OPERACIONAL - FOLHA DE ESTILOS
-   Fidelidade visual à planilha original + Interface Moderna e Produtiva
    ========================================================================== */
 
 :root {
-  /* Cores Temáticas da Escala (Modo Claro Moderno & Executivo) */
+  /* Cores Temáticas da Escala (Modo Claro) */
   --color-year: #1e293b;
   --color-month: #0f172a;
   --color-unit: #1e293b;
@@ -15,8 +14,11 @@
   --color-operator-row: #fefce8; /* Creme suave de alta legibilidade, sem cansar a vista */
   --color-operator-row-hover: #edcd6383; /* Destaque caloroso e suave ao passar o cursor */
   --color-operator-row-text: #0f172a; /* Texto de alto contraste e máxima nitidez */
-  --color-leg-cell: #1e40af; /* Badge azul royal executivo */
-  --color-leg-cell-text: #ffffff;
+  --color-operator-row-text-hover: #0f172a; /* Cor do texto do operador ao passar o cursor sobre a linha */
+  --color-leg-cell: #1e40af; /* Cor da legenda */
+  --color-leg-cell-hover: #edcd6383; /* Cor da legenda ao passar o cursor */
+  --color-leg-cell-text: #ffffff; /* Cor do texto da legenda */
+  --color-leg-cell-text-hover: #111111; /* Cor do texto da legenda ao passar o cursor */
   --color-blue-stripe: #c5c8cc; /* Linha contínua entre operadores */
   --color-blue-stripe-text: #64748b;
   --color-today-line: #2563eb; /* Linhas/bordas especiais demarcadoras do dia atual */
@@ -46,7 +48,7 @@
   --text-main: #0f172a;
   --text-muted: #64748b;
   --border-sheet: #94a3b8;
-  --border-cell: #cbd5e1; /* Divisores modernos, nítidos e suaves */
+  --border-cell: #cbd5e1; /* Divisores, nítidos e suaves */
   --border-light: #e2e8f0;
   --input-bg: #ffffff;
   --input-border: #cbd5e1;
@@ -75,11 +77,14 @@ body.dark-theme {
   --color-weekend: #3730a3;
   --color-col-header: #0f172a;
   --color-days-header: #1d4ed8;
-  --color-operator-row: #111827; /* Superfície slate escura elegante, sem ofuscar */
+  --color-operator-row: #e0e6ee; /* Superfície slate escura elegante, sem ofuscar */
   --color-operator-row-hover: #1e293b; /* Destaque sutil de linha no modo escuro */
-  --color-operator-row-text: #f8fafc; /* Texto claro de alto contraste */
+  --color-operator-row-text: #070707; /* Texto claro de alto contraste */
+  --color-operator-row-text-hover: #ffffff; /* Cor do texto do operador ao passar o cursor sobre a linha no modo escuro */
   --color-leg-cell: #1d4ed8; /* Badge azul cobalto no dark mode */
+  --color-leg-cell-hover: #2563eb; /* Cor da legenda ao passar o cursor no dark mode */
   --color-leg-cell-text: #ffffff;
+  --color-leg-cell-text-hover: #ffffff; /* Cor do texto da legenda ao passar o cursor no dark mode */
   --color-blue-stripe: #3b486a; /* Faixa separadora no modo escuro */
   --color-blue-stripe-text: #94a3b8;
   --color-today-line: #38bdf8; /* Linhas/bordas especiais demarcadoras do dia atual no modo escuro */
@@ -108,7 +113,7 @@ body.dark-theme {
   --text-main: #f1f5f9;
   --text-muted: #94a3b8;
   --border-sheet: #334155;
-  --border-cell: #243247; /* Bordas escuras nítidas e elegantes */
+  --border-cell: #243247; /* Bordas escuras e nítidas */
   --border-light: #1f293d;
   --input-bg: #1e293b;
   --input-border: #334155;
@@ -688,7 +693,7 @@ body.dark-theme .year-badge {
   transition: color 0.2s ease;
 }
 
-/* Estado 1: Limpo / Sincronizado (Cinza / Verde Suave) */
+/* Estado 1: Limpo / Sincronizado (Verde) */
 .btn-save-cloud.state-clean {
   background: rgba(16, 185, 129, 0.12);
   color: #059669;
@@ -707,7 +712,7 @@ body.dark-theme .year-badge {
   color: var(--text-muted);
 }
 
-/* Estado 2: Pendente (Laranja Vibrante - Chamando Atenção) */
+/* Estado 2: Pendente (Laranja - Chamando Atenção) */
 .btn-save-cloud.state-pending {
   background: #ea580c;
   color: #ffffff;
@@ -748,7 +753,7 @@ body.dark-theme .year-badge {
   color: #2563eb;
 }
 
-/* Estado 4: Sucesso Confirmado (Verde Vibrante Temporário) */
+/* Estado 4: Sucesso Confirmado (Verde - Temporário) */
 .btn-save-cloud.state-success {
   background: #10b981;
   color: #ffffff;
@@ -792,7 +797,7 @@ body.dark-theme .year-badge {
 }
 
 /* ==========================================================================
-   ESTILO CENTRAL DA TABELA DA ESCALA (DESIGN REFINADO & MODERNO)
+   ESTILO CENTRAL DA TABELA DA ESCALA 
    ========================================================================== */
 .schedule-table {
   border-collapse: separate;
@@ -1000,10 +1005,18 @@ body.dark-theme thead th.col-name {
 /* Efeito Hover na Linha Inteira (Rastreamento Horizontal Fácil) */
 .row-operator:hover td {
   background-color: var(--color-operator-row-hover) !important;
+  color: var(--color-operator-row-text-hover);
 }
 
-.row-operator:hover .cell-leg-val {
-  filter: brightness(1.1);
+.row-operator:hover .cell-leg-val,
+.cell-leg-val:hover {
+  background-color: var(--color-leg-cell-hover) !important;
+  color: var(--color-leg-cell-text-hover) !important;
+}
+
+.row-operator:hover .leg-text,
+.cell-leg-val:hover .leg-text {
+  color: var(--color-leg-cell-text-hover) !important;
 }
 
 .row-operator:hover .cell-shift[data-val="M"] {
@@ -1037,6 +1050,7 @@ body.dark-theme .row-operator:hover .cell-shift[data-val="R"] {
   left: 0 !important;
   padding: 0 !important;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .leg-container {
@@ -1137,6 +1151,11 @@ body.dark-theme .row-operator:hover .cell-shift[data-val="R"] {
 
 .row-operator:hover .cell-op-name {
   background-color: var(--color-operator-row-hover) !important;
+  color: var(--color-operator-row-text-hover) !important;
+}
+
+.row-operator:hover .op-name-text {
+  color: var(--color-operator-row-text-hover) !important;
 }
 
 .name-container {
@@ -2545,35 +2564,61 @@ body.dark-theme .extra-hours-table tbody tr:hover {
 
 /* ==========================================================================
    CONFIGURAÇÃO DE IMPRESSÃO / EXPORTAÇÃO PDF (@media print)
+   Garante ajuste perfeito do mês inteiro (sem corte) em qualquer folha A4
    ========================================================================== */
 @media print {
   @page {
-    size: A4 landscape;
-    margin: 6mm 8mm;
+    size: landscape;
+    margin: 5mm 5mm 5mm 5mm;
   }
 
+  html,
   body {
     background: #ffffff !important;
     color: #000000 !important;
     padding: 0 !important;
     margin: 0 !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
+  /* Ocultação de elementos interativos e de interface */
   .no-print,
   .app-header,
   .quick-bar,
   .shift-popover,
+  .popover-backdrop,
   .op-actions-group,
   .btn-move-op,
   .btn-del-op,
   .btn-add-obs,
-  .obs-del-btn {
+  .obs-del-btn,
+  .add-operator-wrapper,
+  .save-action-wrapper,
+  .search-box,
+  .login-screen-wrapper,
+  #login-screen,
+  .modal,
+  .modal-backdrop,
+  .toast,
+  .dropdown-content {
     display: none !important;
+  }
+
+  #app-screen {
+    display: block !important;
   }
 
   .main-content {
     padding: 0 !important;
+    margin: 0 !important;
     overflow: visible !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
   .sheet-container {
@@ -2582,29 +2627,67 @@ body.dark-theme .extra-hours-table tbody tr:hover {
     margin: 0 !important;
     border: none !important;
     width: 100% !important;
+    max-width: 100% !important;
+    background: #ffffff !important;
+  }
+
+  .year-badge-container {
+    display: flex !important;
+    align-items: center !important;
+    margin-bottom: 4px !important;
+  }
+
+  .year-badge {
+    height: 22px !important;
+    width: 44px !important;
+    font-size: 11px !important;
+    border: 1px solid #000000 !important;
+    box-shadow: none !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   .table-wrapper {
     overflow: visible !important;
-    border: 1px solid #000000 !important;
+    border: 1px solid #1e293b !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
   }
 
+  /* Tabela Principal: Layout Fixo e 100% de largura para auto-encaixar os 31 dias */
   .schedule-table {
     width: 100% !important;
-    font-size: 10px !important;
+    max-width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+    border-spacing: 0 !important;
+    font-size: 7.5pt !important;
+    background-color: #ffffff !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
   .schedule-table th,
   .schedule-table td {
-    border: 1px solid #000000 !important;
-    height: 18px !important;
-    min-height: 18px !important;
+    border: 1px solid #334155 !important;
+    height: 17px !important;
+    min-height: 17px !important;
+    max-height: 17px !important;
+    line-height: 17px !important;
+    padding: 0 !important;
+    text-align: center !important;
+    vertical-align: middle !important;
+    box-sizing: border-box !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
+  /* Reset dos elementos fixos (sticky) para impressão fluida */
   .col-leg,
   .col-name,
   thead th.col-leg,
@@ -2614,52 +2697,251 @@ body.dark-theme .extra-hours-table tbody tr:hover {
     box-shadow: none !important;
   }
 
-  .col-name {
-    width: 140px !important;
-    min-width: 140px !important;
+  /* Coluna Legenda (Leg.) */
+  .schedule-table .col-leg {
+    width: 25px !important;
+    min-width: 0 !important;
+    max-width: 26px !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
   }
 
-  .col-day {
+  .schedule-table .leg-container {
+    min-height: 17px !important;
+    height: 17px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .schedule-table .leg-text {
+    font-size: 7.5pt !important;
+    font-weight: 800 !important;
+    line-height: 17px !important;
+  }
+
+  /* Coluna Nome do Operador / Unidade */
+  .schedule-table .col-name {
+    width: 110px !important;
+    min-width: 0 !important;
+    max-width: 125px !important;
+    padding: 0 4px !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .schedule-table .cell-unit {
+    font-size: 7.5pt !important;
+    font-weight: 700 !important;
+    text-align: center !important;
+    padding: 0 2px !important;
+    letter-spacing: 0 !important;
+  }
+
+  .schedule-table .cell-hdr-op {
+    font-size: 7pt !important;
+    font-weight: 700 !important;
+    text-align: center !important;
+    padding: 0 !important;
+  }
+
+  .schedule-table .cell-op-name {
+    padding: 0 4px !important;
+  }
+
+  .schedule-table .name-container {
+    width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    display: block !important;
+  }
+
+  .schedule-table .op-name-text {
+    font-size: 7.5pt !important;
+    font-weight: 700 !important;
+    line-height: 17px !important;
+    padding: 0 !important;
+    display: block !important;
+    width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    text-align: center !important;
+  }
+
+  /* Colunas dos Dias (1..31) - Auto divididas pelo table-layout: fixed */
+  .schedule-table .col-day {
     width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
   }
 
+  .schedule-table .cell-weekday,
+  .schedule-table .cell-weekend {
+    font-size: 6.5pt !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.02em !important;
+    line-height: 17px !important;
+    padding: 0 !important;
+  }
+
+  .schedule-table .cell-day-num {
+    font-size: 7.5pt !important;
+    font-weight: 700 !important;
+    line-height: 17px !important;
+    padding: 0 !important;
+  }
+
+  .schedule-table .cell-shift {
+    font-size: 7.5pt !important;
+    font-weight: 800 !important;
+    line-height: 17px !important;
+    padding: 0 !important;
+    cursor: default !important;
+  }
+
+  /* Linha separadora azul entre operadores */
+  .schedule-table .row-blue-stripe {
+    height: 7px !important;
+    min-height: 7px !important;
+    max-height: 7px !important;
+    line-height: 7px !important;
+  }
+
+  .schedule-table .row-blue-stripe td {
+    height: 7px !important;
+    min-height: 7px !important;
+    max-height: 7px !important;
+    border-top: none !important;
+    border-bottom: 1px solid #334155 !important;
+  }
+
+  /* Limpeza de destaques de seleção/foco ao imprimir */
+  .row-operator.op-selected,
+  .row-operator.op-selected td,
+  .row-operator.op-selected .cell-op-name,
+  .row-operator.op-selected .cell-leg-val,
+  .cell-shift:focus,
+  .cell-shift:hover {
+    box-shadow: none !important;
+    outline: none !important;
+  }
+
+  .row-operator.op-selected .leg-text {
+    opacity: 1 !important;
+  }
+
+  /* Seções Inferiores: Observações e Carga Horária / Etapas */
   .bottom-sections {
     display: flex !important;
-    gap: 12px !important;
-    margin-top: 10px !important;
-    page-break-inside: avoid;
+    flex-direction: row !important;
+    gap: 10px !important;
+    margin-top: 8px !important;
+    width: 100% !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    box-sizing: border-box !important;
   }
 
   .observations-section {
-    flex: 0.8 !important;
+    flex: 0 0 28% !important;
+    max-width: 28% !important;
+    min-width: 0 !important;
     margin-top: 0 !important;
-    max-width: 32% !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
   .stats-section {
-    flex: 2 !important;
-    min-width: 66% !important;
+    flex: 1 1 72% !important;
+    min-width: 0 !important;
+    width: 100% !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
   .obs-card,
   .stats-card {
-    border: 1px solid #000000 !important;
+    border: 1px solid #334155 !important;
     box-shadow: none !important;
+    background: #ffffff !important;
+  }
+
+  .obs-header,
+  .stats-header {
+    padding: 4px 8px !important;
+    background-color: var(--color-days-header) !important;
+  }
+
+  .obs-title,
+  .stats-title {
+    font-size: 8pt !important;
+    color: #ffffff !important;
+  }
+
+  .stats-subtitle {
+    font-size: 6.5pt !important;
+  }
+
+  .stats-badge {
+    font-size: 6.5pt !important;
+    padding: 1px 6px !important;
+  }
+
+  .obs-body {
+    padding: 4px 8px !important;
+    font-size: 7pt !important;
+    max-height: none !important;
+  }
+
+  .obs-row {
+    padding: 2px 0 !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+  }
+
+  .obs-text {
+    font-size: 7pt !important;
+    line-height: 1.3 !important;
+  }
+
+  .stats-table-wrapper {
+    overflow: visible !important;
+    width: 100% !important;
   }
 
   .stats-table {
-    font-size: 8px !important;
+    width: 100% !important;
+    table-layout: auto !important;
+    font-size: 6.5pt !important;
+    border-collapse: collapse !important;
   }
 
   .stats-table th,
   .stats-table td {
-    padding: 2px 3px !important;
-    border: 1px solid #000000 !important;
-    font-size: 8px !important;
+    padding: 2px 2px !important;
+    border: 1px solid #334155 !important;
+    font-size: 6.5pt !important;
+    height: auto !important;
+    min-height: 14px !important;
+    line-height: 1.15 !important;
+  }
+
+  .stat-leg-badge {
+    width: 16px !important;
+    height: 16px !important;
+    line-height: 16px !important;
+    font-size: 6.5pt !important;
+  }
+
+  .stats-memorial-footer {
+    font-size: 6pt !important;
+    padding: 3px 6px !important;
+    border-top: 1px solid #334155 !important;
   }
 }
 

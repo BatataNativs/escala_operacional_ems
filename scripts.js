@@ -13,61 +13,18 @@
   const MONTH_NAMES = ['JAN', 'FEV', 'MAR', 'ABR', 'MAIO', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
   const WEEKDAY_NAMES = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
 
-  // Dados Padrão (Fieis à planilha Escala - Out 2026.ods)
+  // Estrutura Padrão Inicial da Escala (Sem turnos hardcoded; populada conforme preenchimento)
   const DEFAULT_DATA = {
     year: 2026,
     month: 9, // Outubro (0-indexed)
     sector: 'EMS-SP',
     operators: [
-      {
-        id: 'op-1',
-        leg: 'A',
-        name: 'SO J. Nunes',
-        shifts: {
-          1: 'M', 2: 'M', 5: 'M', 6: 'M', 7: 'M', 8: 'M', 9: 'M',
-          12: 'M', 13: 'M', 14: 'M', 15: 'M', 16: 'M',
-          19: 'M', 20: 'M', 21: 'M', 22: 'M', 23: 'M',
-          26: 'M', 27: 'M', 28: 'M', 29: 'M', 30: 'M'
-        },
-        subShifts: {}
-      },
-      {
-        id: 'op-2',
-        leg: 'B',
-        name: '2S Natividade',
-        shifts: {
-          2: 'T', 3: 'M', 5: 'T', 8: 'T', 11: 'T', 14: 'T',
-          17: 'T', 18: 'M', 20: 'T', 23: 'T', 24: 'M', 26: 'T', 29: 'T'
-        },
-        subShifts: {}
-      },
-      {
-        id: 'op-3',
-        leg: 'C',
-        name: '1S André',
-        shifts: {
-          3: 'T', 4: 'M', 6: 'T', 9: 'T', 10: 'M', 12: 'T',
-          15: 'T', 18: 'T', 21: 'T', 24: 'T', 25: 'M', 27: 'T', 30: 'T', 31: 'M'
-        },
-        subShifts: {}
-      },
-      {
-        id: 'op-4',
-        leg: 'D',
-        name: 'Operador D.O',
-        shifts: {
-          1: 'T', 4: 'T', 7: 'T', 10: 'T', 11: 'M', 13: 'T',
-          16: 'T', 17: 'M', 19: 'T', 22: 'T', 25: 'T', 28: 'T', 31: 'T'
-        },
-        subShifts: {}
-      }
+      { id: 'op-1', leg: 'A', name: 'SO J. Nunes', shifts: {}, subShifts: {} },
+      { id: 'op-2', leg: 'B', name: '2S Natividade', shifts: {}, subShifts: {} },
+      { id: 'op-3', leg: 'C', name: '1S André', shifts: {}, subShifts: {} },
+      { id: 'op-4', leg: 'D', name: 'Operador D.O', shifts: {}, subShifts: {} }
     ],
-    observations: [
-      '1S Hiremar: 08T, 13T e 31T;',
-      '2S Marisol: 16T, 17M e 22T;',
-      '2S Amanda Lopes: 1T, 04T e 07T;',
-      '2S Seiffert: 19T, 25T e 28T;'
-    ]
+    observations: []
   };
 
   // Estado da Aplicação
@@ -183,6 +140,18 @@
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.operators && Array.isArray(parsed.operators)) {
+          // Se for o cache antigo com dados de exemplo da planilha ODS, limpa os turnos para manter o padrão novo
+          const isLegacySample = parsed.observations && parsed.observations.some(o => typeof o === 'string' && o.includes('1S Hiremar: 08T'));
+          if (isLegacySample) {
+            parsed.operators.forEach(op => {
+              op.shifts = {};
+              op.subShifts = {};
+              op.pimo = 0;
+              op.instrucaoMet = 0;
+            });
+            parsed.observations = [];
+            localStorage.setItem(key, JSON.stringify(parsed));
+          }
           return parsed;
         }
       }
@@ -1211,34 +1180,48 @@
   // =========================================================================
   // EDIÇÃO DE IDENTIFICAÇÃO / POSTO / NOME DO USUÁRIO
   // =========================================================================
-  function openEditUserModal() {
-    if (!modalEditUser) return;
-    if (editUserError) {
-      editUserError.textContent = '';
-      editUserError.classList.add('hidden');
+  function openEditUserModal(e) {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    const modal = document.getElementById('modal-edit-user');
+    if (!modal) return;
+    const errEl = document.getElementById('edit-user-error');
+    if (errEl) {
+      errEl.textContent = '';
+      errEl.classList.add('hidden');
     }
-    if (inputEditUserName) {
-      inputEditUserName.value = currentUser?.name || currentUser?.username || '';
+    const currentName = currentUser?.name || currentUser?.username || (userDisplayName ? userDisplayName.textContent.trim() : '');
+    const input = document.getElementById('input-edit-user-name');
+    if (input) {
+      input.value = (currentName && currentName !== 'Operador') ? currentName : (currentUser?.name || '');
     }
-    modalEditUser.style.display = 'flex';
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
     setTimeout(() => {
-      if (inputEditUserName) {
-        inputEditUserName.focus();
-        inputEditUserName.select();
+      if (input) {
+        input.focus();
+        input.select();
       }
     }, 50);
   }
 
-  function closeEditUserModal() {
-    if (!modalEditUser) return;
-    modalEditUser.style.display = 'none';
-    if (editUserError) {
-      editUserError.textContent = '';
-      editUserError.classList.add('hidden');
+  function closeEditUserModal(e) {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    const modal = document.getElementById('modal-edit-user');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+    const errEl = document.getElementById('edit-user-error');
+    if (errEl) {
+      errEl.textContent = '';
+      errEl.classList.add('hidden');
     }
   }
 
-  async function handleSaveNewUserName() {
+  window.openEditUserModal = openEditUserModal;
+  window.closeEditUserModal = closeEditUserModal;
+
+  async function handleSaveNewUserName(e) {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
     if (!inputEditUserName) return;
     const newName = inputEditUserName.value.trim();
 
@@ -1250,8 +1233,14 @@
       return;
     }
 
-    if (!currentUser) return;
-    const oldName = currentUser.name || currentUser.username || '';
+    if (!currentUser) {
+      currentUser = {
+        name: newName,
+        username: newName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9._-]/g, '') || 'operador'
+      };
+    }
+
+    const oldName = currentUser.name || currentUser.username || (userDisplayName ? userDisplayName.textContent.trim() : '');
 
     if (btnSaveEditUser) {
       btnSaveEditUser.disabled = true;
@@ -1261,23 +1250,28 @@
     try {
       // 1. Persiste no servidor se token estiver ativo
       if (currentUser.token) {
-        const res = await fetch('/api/auth', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${currentUser.token}`
-          },
-          body: JSON.stringify({ action: 'update_name', name: newName })
-        });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.token) currentUser.token = json.token;
-          if (json.user && json.user.name) {
-            currentUser.name = json.user.name;
+        try {
+          const res = await fetch('/api/auth', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${currentUser.token}`
+            },
+            body: JSON.stringify({ action: 'update_name', name: newName })
+          });
+          if (res.ok) {
+            const json = await res.json();
+            if (json.token) currentUser.token = json.token;
+            if (json.user && json.user.name) {
+              currentUser.name = json.user.name;
+            } else {
+              currentUser.name = newName;
+            }
           } else {
             currentUser.name = newName;
           }
-        } else {
+        } catch (fetchErr) {
+          console.warn('Erro ao conectar à API de autenticação:', fetchErr);
           currentUser.name = newName;
         }
       } else {
@@ -1287,7 +1281,12 @@
       // 2. Salva no localStorage do usuário
       localStorage.setItem('escala_current_user', JSON.stringify(currentUser));
 
-      // 3. Propaga alteração em toda a escala onde o nome antigo constar como operador
+      // 3. Atualiza o texto imediatamente na barra superior
+      if (userDisplayName) {
+        userDisplayName.textContent = newName;
+      }
+
+      // 4. Propaga alteração em toda a escala onde o nome antigo constar como operador
       let scaleUpdated = false;
       if (state.operators && Array.isArray(state.operators)) {
         state.operators.forEach(op => {
@@ -1298,14 +1297,14 @@
         });
       }
 
-      // 4. Atualiza UI e registra log de alteração
+      // 5. Atualiza UI e registra log de alteração
       updateAuthViewState();
       if (scaleUpdated) {
         saveState();
         renderBody();
         renderStatsTable();
       }
-      recordLastChange(`Identificação do usuário atualizada para ${newName}`);
+      recordLastChange(`Identificação do usuário atualizada para [${newName}]`);
 
       closeEditUserModal();
     } catch (err) {
@@ -1313,6 +1312,9 @@
       // Fallback local se offline
       currentUser.name = newName;
       localStorage.setItem('escala_current_user', JSON.stringify(currentUser));
+      if (userDisplayName) {
+        userDisplayName.textContent = newName;
+      }
       updateAuthViewState();
       closeEditUserModal();
     } finally {
@@ -1322,6 +1324,8 @@
       }
     }
   }
+
+  window.handleSaveNewUserName = handleSaveNewUserName;
 
   function getShiftFullName(val) {
     if (!val) return '';
@@ -1476,6 +1480,51 @@
   // =========================================================================
   function setupEventListeners() {
     // 1. Mudança de Mês, Ano e Unidade
+    function stepMonth(delta) {
+      let targetMonth = state.month + delta;
+      let targetYear = state.year;
+
+      if (targetMonth > 11) {
+        targetMonth = 0;
+        targetYear += 1;
+      } else if (targetMonth < 0) {
+        targetMonth = 11;
+        targetYear -= 1;
+      }
+
+      if (targetYear < 2020 || targetYear > 2035) return;
+
+      if (hasUnsavedChanges) {
+        if (!confirm('Você possui alterações não salvas neste mês. Deseja mudar de mês e descartá-las?')) {
+          return;
+        }
+      }
+
+      if (selectMonth) selectMonth.value = targetMonth;
+      if (inputYear && targetYear !== state.year) inputYear.value = targetYear;
+
+      loadMonthFromCloud(targetYear, targetMonth, state.sector);
+    }
+
+    window.stepMonth = stepMonth;
+
+    const btnNextMonth = document.getElementById('btn-next-month');
+    const btnPrevMonth = document.getElementById('btn-prev-month');
+
+    if (btnNextMonth) {
+      btnNextMonth.addEventListener('click', (e) => {
+        e.preventDefault();
+        stepMonth(1);
+      });
+    }
+
+    if (btnPrevMonth) {
+      btnPrevMonth.addEventListener('click', (e) => {
+        e.preventDefault();
+        stepMonth(-1);
+      });
+    }
+
     selectMonth.addEventListener('change', (e) => {
       const newMonth = parseInt(e.target.value, 10);
       if (hasUnsavedChanges) {
@@ -1487,9 +1536,42 @@
       loadMonthFromCloud(state.year, newMonth, state.sector);
     });
 
-        inputYear.addEventListener('change', (e) => {
+    function stepYear(delta) {
+      const targetYear = state.year + delta;
+      if (targetYear < 2020 || targetYear > 2035) return;
+
+      if (hasUnsavedChanges) {
+        if (!confirm('Você possui alterações não salvas neste mês. Deseja mudar de ano e descartá-las?')) {
+          return;
+        }
+      }
+
+      if (inputYear) inputYear.value = targetYear;
+      loadMonthFromCloud(targetYear, state.month, state.sector);
+    }
+
+    window.stepYear = stepYear;
+
+    const btnNextYear = document.getElementById('btn-next-year');
+    const btnPrevYear = document.getElementById('btn-prev-year');
+
+    if (btnNextYear) {
+      btnNextYear.addEventListener('click', (e) => {
+        e.preventDefault();
+        stepYear(1);
+      });
+    }
+
+    if (btnPrevYear) {
+      btnPrevYear.addEventListener('click', (e) => {
+        e.preventDefault();
+        stepYear(-1);
+      });
+    }
+
+    inputYear.addEventListener('change', (e) => {
       const y = parseInt(e.target.value, 10);
-      if (y >= 2000 && y <= 2100) {
+      if (y >= 2020 && y <= 2035) {
         if (hasUnsavedChanges) {
           if (!confirm('Você possui alterações não salvas neste mês. Deseja mudar de ano e descartá-las?')) {
             e.target.value = state.year;
@@ -1497,6 +1579,8 @@
           }
         }
         loadMonthFromCloud(y, state.month, state.sector);
+      } else {
+        e.target.value = state.year;
       }
     });
 

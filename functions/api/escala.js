@@ -48,37 +48,18 @@ export async function onRequestGet(context) {
     // 3. Se a escala do mês ainda não existir, cria a entrada inicial vazia
     let observations = [];
     if (!scheduleRecord) {
-      // Apenas Outubro/2026 (mês 9) no setup inicial do banco de dados tem as observações originais da planilha
-      const defaultObs = (year === 2026 && month === 9) ? [
-        '1S Hiremar: 08T, 13T e 31T;',
-        '2S Marisol: 16T, 17M e 22T;',
-        '2S Amanda Lopes: 1T, 04T e 07T;',
-        '2S Seiffert: 19T, 25T e 28T;'
-      ] : [];
-
       await db
         .prepare('INSERT INTO monthly_schedules (id, year, month, sector, observations) VALUES (?, ?, ?, ?, ?)')
-        .bind(scheduleId, year, month, sector, JSON.stringify(defaultObs))
+        .bind(scheduleId, year, month, sector, '[]')
         .run();
 
-      observations = defaultObs;
+      observations = [];
 
-      // Se for Outubro/2026, popula com os turnos iniciais da escala original; novos meses vêm 100% vazios
-      if (year === 2026 && month === 9) {
-        const initialShifts = {
-          'op-1': { 1: 'M', 2: 'M', 5: 'M', 6: 'M', 7: 'M', 8: 'M', 9: 'M', 12: 'M', 13: 'M', 14: 'M', 15: 'M', 16: 'M', 19: 'M', 20: 'M', 21: 'M', 22: 'M', 23: 'M', 26: 'M', 27: 'M', 28: 'M', 29: 'M', 30: 'M' },
-          'op-2': { 2: 'T', 3: 'M', 5: 'T', 8: 'T', 11: 'T', 14: 'T', 17: 'T', 18: 'M', 20: 'T', 23: 'T', 24: 'M', 26: 'T', 29: 'T' },
-          'op-3': { 3: 'T', 4: 'M', 6: 'T', 9: 'T', 10: 'M', 12: 'T', 15: 'T', 18: 'T', 21: 'T', 24: 'T', 25: 'M', 27: 'T', 30: 'T', 31: 'M' },
-          'op-4': { 1: 'T', 4: 'T', 7: 'T', 10: 'T', 11: 'M', 13: 'T', 16: 'T', 17: 'M', 19: 'T', 22: 'T', 25: 'T', 28: 'T', 31: 'T' }
-        };
-
-        const stmtInitial = db.prepare('INSERT INTO operator_month_data (schedule_id, operator_id, shifts, sub_shifts, pimo, instrucao_met) VALUES (?, ?, ?, ?, ?, ?)');
-        const batchArr = dbOperators.map(o => {
-          const shifts = JSON.stringify(initialShifts[o.id] || {});
-          return stmtInitial.bind(scheduleId, o.id, shifts, '{}', 0, 0);
-        });
-        await db.batch(batchArr);
-      }
+      const stmtInitial = db.prepare('INSERT INTO operator_month_data (schedule_id, operator_id, shifts, sub_shifts, pimo, instrucao_met) VALUES (?, ?, ?, ?, ?, ?)');
+      const batchArr = dbOperators.map(o => {
+        return stmtInitial.bind(scheduleId, o.id, '{}', '{}', 0, 0);
+      });
+      await db.batch(batchArr);
     } else {
       try {
         observations = JSON.parse(scheduleRecord.observations || '[]');

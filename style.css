@@ -82,7 +82,7 @@ body.dark-theme {
   --color-operator-row-text: #070707; /* Texto claro de alto contraste */
   --color-operator-row-text-hover: #ffffff; /* Cor do texto do operador ao passar o cursor sobre a linha no modo escuro */
   --color-leg-cell: #1d4ed8; /* Badge azul cobalto no dark mode */
-  --color-leg-cell-hover: #2563eb; /* Cor da legenda ao passar o cursor no dark mode */
+  --color-leg-cell-hover: #1e293b; /* Cor da legenda ao passar o cursor no dark mode */
   --color-leg-cell-text: #ffffff;
   --color-leg-cell-text-hover: #ffffff; /* Cor do texto da legenda ao passar o cursor no dark mode */
   --color-blue-stripe: #3b486a; /* Faixa separadora no modo escuro */
@@ -667,6 +667,39 @@ body.dark-theme .year-badge {
   align-items: flex-start;
   justify-content: center;
   user-select: none;
+}
+
+.save-action-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.last-change-display {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: 0.01em;
+  background: rgba(100, 116, 139, 0.08);
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+}
+
+.last-change-display:empty {
+  display: none;
+}
+
+body.dark-theme .last-change-display {
+  color: #cbd5e1;
+  background: rgba(30, 41, 59, 0.6);
+  border-color: #334155;
 }
 
 .btn-save-cloud {
@@ -1415,16 +1448,16 @@ body.dark-theme .operator-matched td {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 3px;
+  margin-top: 5px;
   margin-bottom: 0;
   box-sizing: border-box;
 }
 
 .btn-add-op-solo {
-  width: 28px;
-  height: 26px;
+  width: 50px;
+  height: 20px;
   display: inline-flex;
-  align-items: center;
+  align-items: left;
   justify-content: center;
   background-color: var(--primary);
   color: #ffffff;
@@ -1848,6 +1881,79 @@ body.dark-theme .col-stat-e5 {
 
 body.dark-theme .col-stat-e10 {
   color: #fde68a; 
+}
+
+/* Destaque quando turnos T > 10 */
+.shift-t-alert,
+.count-t-alert {
+  color: #dc2626 !important;
+  font-weight: 800 !important;
+}
+
+/* Subcolunas nas células de Etapa 5X e 10X */
+.etapa-split-cell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+  box-sizing: border-box;
+  padding: 1px 4px;
+}
+
+.etapa-info-subcol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  text-align: left;
+  line-height: 1.15;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.etapa-badge-row {
+  font-size: 9.5px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: var(--text-muted);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.etapa-badge-row strong {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  color: var(--text-main);
+  font-size: 10px;
+}
+
+body.dark-theme .etapa-badge-row {
+  color: #94a3b8;
+}
+
+body.dark-theme .etapa-badge-row strong {
+  color: #f1f5f9;
+}
+
+.etapa-badge-row.count-t-alert,
+.etapa-badge-row.count-t-alert strong {
+  color: #dc2626 !important;
+  font-weight: 800 !important;
+}
+
+.etapa-val-subcol {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  text-align: right;
+  flex: 1;
+}
+
+.etapa-val-amount {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .text-muted-stat {
@@ -2931,6 +3037,24 @@ body.dark-theme .extra-hours-table tbody tr:hover {
     line-height: 1.15 !important;
   }
 
+  .etapa-split-cell {
+    gap: 3px !important;
+    padding: 0 !important;
+  }
+
+  .etapa-badge-row {
+    font-size: 5pt !important;
+    line-height: 1.05 !important;
+  }
+
+  .etapa-badge-row strong {
+    font-size: 5.5pt !important;
+  }
+
+  .etapa-val-amount {
+    font-size: 6.5pt !important;
+  }
+
   .stat-leg-badge {
     width: 16px !important;
     height: 16px !important;
@@ -3321,11 +3445,38 @@ body.dark-theme .extra-hours-table tbody tr:hover {
   color: #64748b;
 }
 
-/* Tag de Logout no Header */
+/* Grupo e Botões de Usuário no Header */
+.user-auth-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-user-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.user-edit-icon {
+  font-size: 11px;
+  opacity: 0.5;
+  margin-left: 2px;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.btn-user-edit:hover .user-edit-icon {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
 .user-logout-tag {
   font-size: 11px;
   color: var(--text-muted);
-  margin-left: 6px;
+  margin-left: 4px;
   font-weight: 500;
   opacity: 0.8;
 }

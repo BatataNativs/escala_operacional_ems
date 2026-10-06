@@ -319,6 +319,39 @@ export async function onRequestPost(context) {
       }), {
         headers: { 'Content-Type': 'application/json' }
       });
+    } else if (action === 'update_name') {
+      const authHeader = request.headers.get('Authorization') || '';
+      const token = authHeader.replace(/^Bearer\s+/i, '');
+      const session = await verifySessionToken(token, env.AUTH_SECRET);
+      if (!session) {
+        return new Response(JSON.stringify({ success: false, error: 'Sessão inválida ou expirada' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const { name } = body;
+      const cleanName = (typeof name === 'string' ? name.trim() : '');
+      if (!cleanName) {
+        return new Response(JSON.stringify({ success: false, error: 'O nome não pode ficar em branco' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      await db.prepare('UPDATE users SET name = ? WHERE id = ?').bind(cleanName, session.sub).run();
+
+      const updatedUser = await db.prepare('SELECT id, username, name, role FROM users WHERE id = ?').bind(session.sub).first();
+      const newToken = await createSessionToken(updatedUser, env.AUTH_SECRET);
+
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'Nome atualizado com sucesso!',
+        token: newToken,
+        user: updatedUser
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     return new Response(JSON.stringify({ success: false, error: 'Ação não suportada' }), {

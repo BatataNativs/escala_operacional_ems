@@ -9,8 +9,8 @@
   // Chave do localStorage
   const STORAGE_KEY = 'escala_operacional_v1';
 
-  // Nomes dos meses e dias da semana abreviados
-  const MONTH_NAMES = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+  // Nomes dos meses e dias da semana abreviados (Maio não se abrevia para MAI na língua portuguesa)
+  const MONTH_NAMES = ['JAN', 'FEV', 'MAR', 'ABR', 'MAIO', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
   const WEEKDAY_NAMES = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
 
   // Dados Padrão (Fieis à planilha Escala - Out 2026.ods)
@@ -137,6 +137,14 @@
 
   const btnAuthUser = document.getElementById('btn-auth-user');
   const userDisplayName = document.getElementById('user-display-name');
+  const btnEditUserName = document.getElementById('btn-edit-user-name');
+  const modalEditUser = document.getElementById('modal-edit-user');
+  const btnCloseEditUser = document.getElementById('btn-close-edit-user');
+  const btnCancelEditUser = document.getElementById('btn-cancel-edit-user');
+  const btnSaveEditUser = document.getElementById('btn-save-edit-user');
+  const inputEditUserName = document.getElementById('input-edit-user-name');
+  const editUserError = document.getElementById('edit-user-error');
+  const lastChangeDisplay = document.getElementById('last-change-display');
   const modalAuth = document.getElementById('modal-auth');
   const btnCloseAuth = document.getElementById('btn-close-auth');
   const tabLogin = document.getElementById('tab-login');
@@ -365,6 +373,46 @@
   }
 
   // =========================================================================
+  // REGISTRO DE ÚLTIMA ALTERAÇÃO
+  // =========================================================================
+  function formatChangeTime(date = new Date()) {
+    const h = String(date.getHours()).padStart(2, '0');
+    const m = String(date.getMinutes()).padStart(2, '0');
+    const s = String(date.getSeconds()).padStart(2, '0');
+    return `${h}h${m}min${s}s`;
+  }
+
+  function recordLastChange(description) {
+    if (!description) return;
+    const timeStr = formatChangeTime();
+    const fullText = `Última alteração: ${timeStr} - ${description}`;
+
+    state.lastChangeText = fullText;
+    state.lastChangeTime = Date.now();
+
+    try {
+      const key = `escala_last_change_${state.sector || 'EMS-SP'}_${state.year}_${state.month}`;
+      localStorage.setItem(key, fullText);
+      localStorage.setItem('escala_last_change_recent', fullText);
+    } catch (e) {}
+
+    renderLastChange();
+  }
+
+  function renderLastChange() {
+    if (!lastChangeDisplay) return;
+    const key = `escala_last_change_${state.sector || 'EMS-SP'}_${state.year}_${state.month}`;
+    const text = state.lastChangeText || localStorage.getItem(key) || localStorage.getItem('escala_last_change_recent') || '';
+    if (text) {
+      lastChangeDisplay.textContent = text;
+      lastChangeDisplay.style.display = 'inline-flex';
+    } else {
+      lastChangeDisplay.textContent = '';
+      lastChangeDisplay.style.display = 'none';
+    }
+  }
+
+  // =========================================================================
   // CÁLCULO DE DIAS DO MÊS E CALENDÁRIO
   // =========================================================================
   function getDaysInMonth(year, month) {
@@ -395,6 +443,7 @@
     renderBody();
     renderObservations();
     renderStatsTable();
+    renderLastChange();
   }
 
   function syncHeaderControls() {
@@ -551,6 +600,10 @@
     let countR = 0;
     let etapa5x = 0;
     let etapa10x = 0;
+    let etapa5xTotalDias = 0;
+    let etapa5xUteisDias = 0;
+    let etapa10xTotalDias = 0;
+    let etapa10xUteisDias = 0;
 
     daysInfo.forEach(d => {
       // Turno principal
@@ -559,10 +612,18 @@
         countM++;
       } else if (val === 'T') {
         countT++;
+        etapa5xTotalDias++;
+        if (!d.isWeekend) {
+          etapa5xUteisDias++;
+        }
         // Etapa 5X: R$ 67,50 no fim de semana; R$ 54,00 em dia útil (-R$ 13,50)
         etapa5x += d.isWeekend ? 67.5 : 54.0;
       } else if (val === 'R') {
         countR++;
+        etapa10xTotalDias++;
+        if (!d.isWeekend) {
+          etapa10xUteisDias++;
+        }
         // Etapa 10X: R$ 135,00 no fim de semana; R$ 121,50 em dia útil (-R$ 13,50)
         etapa10x += d.isWeekend ? 135.0 : 121.5;
       }
@@ -596,7 +657,11 @@
       totalShifts,
       totalHours,
       etapa5x,
-      etapa10x
+      etapa10x,
+      etapa5xTotalDias,
+      etapa5xUteisDias,
+      etapa10xTotalDias,
+      etapa10xUteisDias
     };
   }
 
@@ -642,7 +707,14 @@
 
       const breakdown = [];
       if (stats.countM > 0) breakdown.push(`${stats.countM}M`);
-      if (stats.countT > 0) breakdown.push(`${stats.countT}T`);
+      if (stats.countT > 0) {
+        // Alerta: Quando o número de serviços "T" for > 10, fica vermelho e em negrito
+        if (stats.countT > 10) {
+          breakdown.push(`<span class="shift-t-alert"><strong>${stats.countT}T</strong></span>`);
+        } else {
+          breakdown.push(`${stats.countT}T`);
+        }
+      }
       if (stats.countR > 0) breakdown.push(`${stats.countR}R`);
       const breakdownText = breakdown.length ? ` <span class="shifts-breakdown">(${breakdown.join(', ')})</span>` : '';
 
@@ -654,11 +726,13 @@
       if (stats.pimo > 0) tooltipParts.push(`PIMO: ${formatHours(stats.pimo)}`);
       if (stats.instrucaoMet > 0) tooltipParts.push(`MET: ${formatHours(stats.instrucaoMet)}`);
       tooltipParts.push(`Total: ${formatHours(stats.totalHours)}`);
-      const tooltipText = tooltipParts.join(' | ');
 
-      const extrasTag = (stats.pimo > 0 || stats.instrucaoMet > 0)
-        ? ` <span class="shifts-breakdown" style="font-size:10px;">(+${stats.pimo + stats.instrucaoMet}h extra)</span>`
-        : '';
+      const e5AlertClass = stats.countT > 10 ? ' count-t-alert' : '';
+      const e5TotalDiasStr = String(stats.etapa5xTotalDias).padStart(2, '0');
+      const e5UteisDiasStr = String(stats.etapa5xUteisDias).padStart(2, '0');
+
+      const e10TotalDiasStr = String(stats.etapa10xTotalDias).padStart(2, '0');
+      const e10UteisDiasStr = String(stats.etapa10xUteisDias).padStart(2, '0');
 
       rowsHtml += `<tr class="row-stat-operator${rowDimmed}${rowMatched}" data-op-id="${escapeHtml(op.id)}">
         <td class="col-stat-leg"><span class="stat-leg-badge">${escapeHtml(op.leg)}</span></td>
@@ -670,8 +744,28 @@
         <td class="col-stat-pimo">${formatHours(stats.pimo)}</td>
         <td class="col-stat-met">${formatHours(stats.instrucaoMet)}</td>
         <td class="col-stat-total"><strong>${formatHours(stats.totalHours)}</strong></td>
-        <td class="col-stat-e5">${formatCurrency(stats.etapa5x)}</td>
-        <td class="col-stat-e10">${formatCurrency(stats.etapa10x)}</td>
+        <td class="col-stat-e5">
+          <div class="etapa-split-cell">
+            <div class="etapa-info-subcol">
+              <span class="etapa-badge-row${e5AlertClass}"><strong>${e5TotalDiasStr}</strong> Dias totais</span>
+              <span class="etapa-badge-row"><strong>${e5UteisDiasStr}</strong> Dias úteis</span>
+            </div>
+            <div class="etapa-val-subcol">
+              <span class="etapa-val-amount">${formatCurrency(stats.etapa5x)}</span>
+            </div>
+          </div>
+        </td>
+        <td class="col-stat-e10">
+          <div class="etapa-split-cell">
+            <div class="etapa-info-subcol">
+              <span class="etapa-badge-row"><strong>${e10TotalDiasStr}</strong> Dias totais</span>
+              <span class="etapa-badge-row"><strong>${e10UteisDiasStr}</strong> Dias úteis</span>
+            </div>
+            <div class="etapa-val-subcol">
+              <span class="etapa-val-amount">${formatCurrency(stats.etapa10x)}</span>
+            </div>
+          </div>
+        </td>
       </tr>`;
     });
 
@@ -719,6 +813,7 @@
 
     state.operators.push(newOp);
     saveState();
+    recordLastChange(`Operador ${newOp.name} adicionado`);
     renderBody();
     renderStatsTable();
 
@@ -736,11 +831,13 @@
     const op = state.operators.find(o => o.id === opId);
     if (!op) return;
     if (confirm(`Deseja remover o operador "${op.name}" da escala?`)) {
+      const opName = op.name;
       state.operators = state.operators.filter(o => o.id !== opId);
       if (selectedOpId === opId) {
         selectedOpId = null;
       }
       saveState();
+      recordLastChange(`Operador ${opName} excluído`);
       renderBody();
       renderStatsTable();
     }
@@ -759,6 +856,7 @@
 
     selectedOpId = opId;
     saveState();
+    recordLastChange(`Operador ${movedOp.name} movido para ${direction < 0 ? 'cima' : 'baixo'}`);
     renderBody();
     renderStatsTable();
   }
@@ -767,6 +865,7 @@
     if (currentMode !== 'edit') return;
     state.observations.push('Nova observação de escala;');
     saveState();
+    recordLastChange('Observações atualizadas');
     renderObservations();
 
     setTimeout(() => {
@@ -782,6 +881,7 @@
   function deleteObservation(index) {
     state.observations.splice(index, 1);
     saveState();
+    recordLastChange('Observações atualizadas');
     renderObservations();
   }
 
@@ -832,6 +932,7 @@
       }
     });
     saveState();
+    recordLastChange('Cargas extras PIMO / MET atualizadas');
     renderStatsTable();
     closeExtraHoursModal();
   }
@@ -882,6 +983,9 @@
       }
       if (btnAuthUser) {
         btnAuthUser.title = `Conectado como ${currentUser.name || currentUser.username}. Clique para sair.`;
+      }
+      if (btnEditUserName) {
+        btnEditUserName.title = `Editar nome ou posto/graduação (${currentUser.name || currentUser.username})`;
       }
     } else {
       // Não autenticado: exibe tela de login e oculta aplicação
@@ -1105,16 +1209,141 @@
   }
 
   // =========================================================================
+  // EDIÇÃO DE IDENTIFICAÇÃO / POSTO / NOME DO USUÁRIO
+  // =========================================================================
+  function openEditUserModal() {
+    if (!modalEditUser) return;
+    if (editUserError) {
+      editUserError.textContent = '';
+      editUserError.classList.add('hidden');
+    }
+    if (inputEditUserName) {
+      inputEditUserName.value = currentUser?.name || currentUser?.username || '';
+    }
+    modalEditUser.style.display = 'flex';
+    setTimeout(() => {
+      if (inputEditUserName) {
+        inputEditUserName.focus();
+        inputEditUserName.select();
+      }
+    }, 50);
+  }
+
+  function closeEditUserModal() {
+    if (!modalEditUser) return;
+    modalEditUser.style.display = 'none';
+    if (editUserError) {
+      editUserError.textContent = '';
+      editUserError.classList.add('hidden');
+    }
+  }
+
+  async function handleSaveNewUserName() {
+    if (!inputEditUserName) return;
+    const newName = inputEditUserName.value.trim();
+
+    if (!newName) {
+      if (editUserError) {
+        editUserError.textContent = 'Informe seu nome ou posto/graduação.';
+        editUserError.classList.remove('hidden');
+      }
+      return;
+    }
+
+    if (!currentUser) return;
+    const oldName = currentUser.name || currentUser.username || '';
+
+    if (btnSaveEditUser) {
+      btnSaveEditUser.disabled = true;
+      btnSaveEditUser.textContent = 'Salvando...';
+    }
+
+    try {
+      // 1. Persiste no servidor se token estiver ativo
+      if (currentUser.token) {
+        const res = await fetch('/api/auth', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${currentUser.token}`
+          },
+          body: JSON.stringify({ action: 'update_name', name: newName })
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.token) currentUser.token = json.token;
+          if (json.user && json.user.name) {
+            currentUser.name = json.user.name;
+          } else {
+            currentUser.name = newName;
+          }
+        } else {
+          currentUser.name = newName;
+        }
+      } else {
+        currentUser.name = newName;
+      }
+
+      // 2. Salva no localStorage do usuário
+      localStorage.setItem('escala_current_user', JSON.stringify(currentUser));
+
+      // 3. Propaga alteração em toda a escala onde o nome antigo constar como operador
+      let scaleUpdated = false;
+      if (state.operators && Array.isArray(state.operators)) {
+        state.operators.forEach(op => {
+          if (op.name === oldName || (oldName && op.name.toLowerCase() === oldName.toLowerCase())) {
+            op.name = newName;
+            scaleUpdated = true;
+          }
+        });
+      }
+
+      // 4. Atualiza UI e registra log de alteração
+      updateAuthViewState();
+      if (scaleUpdated) {
+        saveState();
+        renderBody();
+        renderStatsTable();
+      }
+      recordLastChange(`Identificação do usuário atualizada para ${newName}`);
+
+      closeEditUserModal();
+    } catch (err) {
+      console.warn('Erro ao atualizar nome:', err);
+      // Fallback local se offline
+      currentUser.name = newName;
+      localStorage.setItem('escala_current_user', JSON.stringify(currentUser));
+      updateAuthViewState();
+      closeEditUserModal();
+    } finally {
+      if (btnSaveEditUser) {
+        btnSaveEditUser.disabled = false;
+        btnSaveEditUser.textContent = 'Salvar Alteração';
+      }
+    }
+  }
+
+  // =========================================================================
   // EDIÇÃO DE CÉLULAS & ATALHOS DE TECLADO
   // =========================================================================
   function updateCellShift(opId, day, val) {
     const op = state.operators.find(o => o.id === opId);
     if (!op) return;
 
+    const oldVal = (op.shifts && op.shifts[day]) ? op.shifts[day] : '';
     val = val.trim().toUpperCase();
+
+    if (val === oldVal) return;
 
     if (val) op.shifts[day] = val;
     else delete op.shifts[day];
+
+    const opName = op.name || (currentUser?.name || 'Operador');
+    if (!val) {
+      recordLastChange(`Turno ${day}${oldVal} excluído`);
+    } else {
+      recordLastChange(`Turno ${day}${val} adicionado para ${opName}`);
+    }
 
     saveState();
 
@@ -1253,13 +1482,16 @@
       }
     });
 
-    inputSector.addEventListener('input', (e) => {
+    inputSector.addEventListener('change', (e) => {
       const val = e.target.value.trim() || 'EMS-SP';
-      state.sector = val;
-      saveState();
-      // Atualiza no cabeçalho da tabela em tempo real
-      const unitTh = thead.querySelector('.cell-unit');
-      if (unitTh) unitTh.textContent = val;
+      if (state.sector !== val) {
+        state.sector = val;
+        saveState();
+        recordLastChange(`Setor atualizado para ${val}`);
+        // Atualiza no cabeçalho da tabela em tempo real
+        const unitTh = thead.querySelector('.cell-unit');
+        if (unitTh) unitTh.textContent = val;
+      }
     });
 
     // Edição inline da Unidade / Setor diretamente na célula da tabela
@@ -1267,10 +1499,13 @@
       const el = e.target;
       if (el && el.getAttribute('data-action') === 'edit-sector') {
         const val = el.textContent.trim().toUpperCase() || 'EMS-SP';
-        state.sector = val;
-        el.textContent = val;
-        if (inputSector) inputSector.value = val;
-        saveState();
+        if (state.sector !== val) {
+          state.sector = val;
+          el.textContent = val;
+          if (inputSector) inputSector.value = val;
+          saveState();
+          recordLastChange(`Setor atualizado para ${val}`);
+        }
       }
     }, true);
 
@@ -1457,6 +1692,7 @@
           };
 
           saveState();
+          recordLastChange('Escala importada');
           renderAll();
           alert('Escala importada com sucesso!');
         } catch (err) {
@@ -1476,6 +1712,7 @@
           op.subShifts = {};
         });
         saveState();
+        recordLastChange('Turnos do mês limpos');
         renderAll();
       }
     });
@@ -1644,7 +1881,11 @@
           const opId = el.getAttribute('data-op-id');
           const op = state.operators.find(o => o.id === opId);
           if (op) {
-            op.name = el.textContent.trim();
+            const newName = el.textContent.trim();
+            if (op.name !== newName) {
+              op.name = newName;
+              recordLastChange(`Operador renomeado para ${op.name}`);
+            }
           }
           closeOpNameEditing(el);
           el.blur();
@@ -1698,14 +1939,24 @@
       if (!op) return;
 
       if (action === 'edit-leg') {
-        op.leg = el.textContent.trim();
-        saveState();
-        renderStatsTable();
+        const newLeg = el.textContent.trim();
+        if (op.leg !== newLeg) {
+          op.leg = newLeg;
+          saveState();
+          recordLastChange(`Legenda alterada para ${op.leg} (${op.name})`);
+          renderStatsTable();
+        }
       } else if (action === 'edit-name') {
-        op.name = el.textContent.trim();
-        closeOpNameEditing(el);
-        saveState();
-        renderStatsTable();
+        const newName = el.textContent.trim();
+        if (op.name !== newName) {
+          op.name = newName;
+          closeOpNameEditing(el);
+          saveState();
+          recordLastChange(`Operador renomeado para ${op.name}`);
+          renderStatsTable();
+        } else {
+          closeOpNameEditing(el);
+        }
       }
     }, true);
 
@@ -1726,8 +1977,12 @@
       const el = e.target;
       if (el.getAttribute('data-action') === 'edit-obs') {
         const index = parseInt(el.getAttribute('data-index'), 10);
-        state.observations[index] = el.textContent.trim();
-        saveState();
+        const newText = el.textContent.trim();
+        if (state.observations[index] !== newText) {
+          state.observations[index] = newText;
+          saveState();
+          recordLastChange('Observações atualizadas');
+        }
       }
     }, true);
 
@@ -1802,6 +2057,37 @@
       modalAuth.addEventListener('click', (e) => {
         if (e.target === modalAuth) {
           closeAuthModal();
+        }
+      });
+    }
+
+    // Modal de Edição de Nome / Posto do Usuário
+    if (btnEditUserName) {
+      btnEditUserName.addEventListener('click', openEditUserModal);
+    }
+    if (btnCloseEditUser) {
+      btnCloseEditUser.addEventListener('click', closeEditUserModal);
+    }
+    if (btnCancelEditUser) {
+      btnCancelEditUser.addEventListener('click', closeEditUserModal);
+    }
+    if (btnSaveEditUser) {
+      btnSaveEditUser.addEventListener('click', handleSaveNewUserName);
+    }
+    if (inputEditUserName) {
+      inputEditUserName.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleSaveNewUserName();
+        } else if (e.key === 'Escape') {
+          closeEditUserModal();
+        }
+      });
+    }
+    if (modalEditUser) {
+      modalEditUser.addEventListener('click', (e) => {
+        if (e.target === modalEditUser) {
+          closeEditUserModal();
         }
       });
     }

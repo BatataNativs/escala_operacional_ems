@@ -1646,14 +1646,20 @@
     btnAddObs.addEventListener('click', addObservation);
 
     // 4. Imprimir / Salvar em PDF
-    btnPrint.addEventListener('click', () => {
+    function triggerPrint(e) {
+      if (e) e.preventDefault();
       if (selectedOpId) {
         selectedOpId = null;
         renderBody();
       }
-      hideShiftPopover();
+      closeShiftPopover();
       window.print();
-    });
+    }
+    window.triggerPrint = triggerPrint;
+
+    if (btnPrint) {
+      btnPrint.addEventListener('click', triggerPrint);
+    }
 
     // 5. Dropdown de Opções
     btnMore.addEventListener('click', (e) => {

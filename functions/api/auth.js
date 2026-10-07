@@ -277,25 +277,6 @@ export async function onRequestPost(context) {
 
       resetAttempts(clientIp);
 
-      // Garante bootstrap do dono/administrador:
-      // Se for id = 1 ou se não houver nenhum admin cadastrado e este for o usuário mais antigo, promove para 'admin'
-      if (user.role !== 'admin') {
-        let shouldPromote = (user.id === 1);
-        if (!shouldPromote) {
-          const adminCheck = await db.prepare("SELECT COUNT(*) as total FROM users WHERE role = 'admin'").first();
-          if (Number(adminCheck?.total || 0) === 0) {
-            const firstUser = await db.prepare("SELECT id FROM users ORDER BY id ASC LIMIT 1").first();
-            if (firstUser && firstUser.id === user.id) {
-              shouldPromote = true;
-            }
-          }
-        }
-        if (shouldPromote) {
-          await db.prepare("UPDATE users SET role = 'admin' WHERE id = ?").bind(user.id).run();
-          user.role = 'admin';
-        }
-      }
-
       const token = await createSessionToken(user, authSecret);
 
       return new Response(JSON.stringify({
@@ -350,6 +331,18 @@ export async function onRequestPost(context) {
         });
       }
 
+      // Lista restrita de operadores autorizados da escala
+      const ALLOWED_USERNAMES = ['natividadedan', 'jnunesjnf', 'andreapr'];
+      if (!ALLOWED_USERNAMES.includes(cleanUsername.toLowerCase())) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Identificação não autorizada. Apenas operadores autorizados podem criar acesso.'
+        }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
       const existing = await db
         .prepare('SELECT id FROM users WHERE username = ?')
         .bind(cleanUsername)
@@ -362,11 +355,8 @@ export async function onRequestPost(context) {
         });
       }
 
-      // Regra de Bootstrap: Primeiro usuário registrado no sistema torna-se 'admin'.
-      // Qualquer registro posterior será estritamente 'operator' (bloqueia injeção de role: 'admin').
-      const countResult = await db.prepare('SELECT COUNT(*) as total FROM users').first();
-      const totalUsers = Number(countResult?.total || 0);
-      const assignedRole = (totalUsers === 0) ? 'admin' : 'operator';
+      // Todos os usuários autenticados possuem o mesmo perfil operacional
+      const assignedRole = 'operator';
 
       const passHash = await hashPassword(password);
       await db

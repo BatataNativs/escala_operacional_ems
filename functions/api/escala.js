@@ -198,14 +198,8 @@ export async function onRequestPost(context) {
     }
 
     // -------------------------------------------------------------------------
-    // CONTROLE DE ACESSO RBAC: Apenas perfil 'admin' pode salvar alterações
+    // CONTROLE DE ACESSO: Qualquer operador autenticado com sessão válida pode salvar
     // -------------------------------------------------------------------------
-    if (session.role !== 'admin') {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'Acesso negado. Apenas administradores têm permissão para salvar alterações na escala.'
-      }), { status: 403, headers: { 'Content-Type': 'application/json' } });
-    }
 
     // -------------------------------------------------------------------------
     // VALIDAÇÃO RÍGIDA DE ENTRADAS (Mitigação Risco 02)

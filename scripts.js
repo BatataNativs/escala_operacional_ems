@@ -247,11 +247,6 @@
       return false;
     }
 
-    if (currentUser.role !== 'admin') {
-      alert('Acesso restrito: seu usuário possui perfil de operador (apenas visualização). Apenas administradores podem salvar ou alterar escalas na nuvem.');
-      return false;
-    }
-
     isSavingToCloud = true;
     updateSaveButtonUI('saving');
     triggerSaveIndicator('Salvando na nuvem...', 'cloud-syncing');
@@ -279,7 +274,7 @@
         updateSaveButtonUI('error');
         triggerSaveIndicator('Permissão negada');
         const errJson = await res.json().catch(() => ({}));
-        alert(errJson.error || 'Apenas administradores podem salvar alterações na escala.');
+        alert(errJson.error || 'Acesso negado para salvar alterações.');
         return false;
       }
 
@@ -976,11 +971,10 @@
       loginScreen.style.display = 'none';
       appScreen.style.display = 'block';
       if (userDisplayName) {
-        const roleLabel = currentUser.role === 'admin' ? ' (Admin)' : ' (Operador)';
-        userDisplayName.textContent = (currentUser.name || currentUser.username) + roleLabel;
+        userDisplayName.textContent = currentUser.name || currentUser.username;
       }
       if (btnAuthUser) {
-        btnAuthUser.title = `Conectado como ${currentUser.name || currentUser.username} (${currentUser.role || 'operador'}). Clique para sair.`;
+        btnAuthUser.title = `Conectado como ${currentUser.name || currentUser.username}. Clique para sair.`;
       }
       if (btnEditUserName) {
         btnEditUserName.title = `Editar nome ou posto/graduação (${currentUser.name || currentUser.username})`;
@@ -1356,8 +1350,7 @@
 
       // 3. Atualiza o texto imediatamente na barra superior
       if (userDisplayName) {
-        const roleLabel = (currentUser && currentUser.role === 'admin') ? ' (Admin)' : ' (Operador)';
-        userDisplayName.textContent = newName + roleLabel;
+        userDisplayName.textContent = newName;
       }
 
       // 4. Propaga alteração em toda a escala onde o nome antigo constar como operador

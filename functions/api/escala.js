@@ -1,13 +1,45 @@
 // Endpoint da API Cloudflare Pages Functions para Escala Operacional
 // Rota: /api/escala
 
-import { verifySessionToken } from './auth.js';
+import { verifySessionToken, getAuthSecret, extractBearerToken } from './auth.js';
 
 export async function onRequestGet(context) {
   const { env, request } = context;
   const db = env.DB;
 
   try {
+    let secret;
+    try {
+      secret = getAuthSecret(env);
+    } catch (cfgErr) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Erro de configuração do servidor: a variável AUTH_SECRET precisa ser configurada nas configurações do Cloudflare Pages.'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // AUTORIZAÇÃO: Validação de Token de Sessão (bloqueia leitura anônima)
+    // -------------------------------------------------------------------------
+    const token = extractBearerToken(request);
+    if (!token) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Sessão não autenticada. Faça login para visualizar a escala.'
+      }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    const session = await verifySessionToken(token, secret);
+    if (!session) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Sessão expirada ou inválida. Faça login novamente.'
+      }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+    }
+
     const url = new URL(request.url);
     const year = parseInt(url.searchParams.get('year') || '2026', 10);
     const month = parseInt(url.searchParams.get('month') || '9', 10); // 0-11
@@ -133,24 +165,46 @@ export async function onRequestPost(context) {
   const db = env.DB;
 
   try {
+    let secret;
+    try {
+      secret = getAuthSecret(env);
+    } catch (cfgErr) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Erro de configuração do servidor: a variável AUTH_SECRET precisa ser configurada nas configurações do Cloudflare Pages.'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
     // -------------------------------------------------------------------------
     // AUTORIZAÇÃO: Validação de Token de Sessão (Mitigação BOLA/IDOR)
     // -------------------------------------------------------------------------
-    const authHeader = request.headers.get('Authorization') || '';
-    if (!authHeader.startsWith('Bearer ')) {
+    const token = extractBearerToken(request);
+    if (!token) {
       return new Response(JSON.stringify({
         success: false,
         error: 'Sessão não autenticada. Faça login para continuar.'
       }), { status: 401, headers: { 'Content-Type': 'application/json' } });
     }
 
-    const token = authHeader.slice(7).trim();
-    const session = await verifySessionToken(token, env.AUTH_SECRET);
+    const session = await verifySessionToken(token, secret);
     if (!session) {
       return new Response(JSON.stringify({
         success: false,
         error: 'Sessão expirada ou inválida. Faça login novamente.'
       }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    // -------------------------------------------------------------------------
+    // CONTROLE DE ACESSO RBAC: Apenas perfil 'admin' pode salvar alterações
+    // -------------------------------------------------------------------------
+    if (session.role !== 'admin') {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Acesso negado. Apenas administradores têm permissão para salvar alterações na escala.'
+      }), { status: 403, headers: { 'Content-Type': 'application/json' } });
     }
 
     // -------------------------------------------------------------------------

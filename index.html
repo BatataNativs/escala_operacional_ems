@@ -54,7 +54,7 @@
                 <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
                 <circle cx="12" cy="7" r="4"></circle>
               </svg>
-              <input type="text" id="login-input-name" class="login-input-field" placeholder="Ex: 2S Silva">
+              <input type="text" id="login-input-name" class="login-input-field" placeholder="Ex: 2S Silva" maxlength="60">
             </div>
           </div>
 
@@ -65,7 +65,7 @@
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                 <circle cx="12" cy="7" r="4"></circle>
               </svg>
-              <input type="text" id="login-input-user" class="login-input-field" placeholder="Ex: silvapsb (nome de guerra + iniciais)" required autocomplete="username" autocapitalize="none" spellcheck="false">
+              <input type="text" id="login-input-user" class="login-input-field" placeholder="Ex: silvapsb (nome de guerra + iniciais)" required autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="40">
             </div>
           </div>
 
@@ -76,9 +76,9 @@
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
                 <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
               </svg>
-              <input type="password" id="login-input-pass" class="login-input-field" placeholder="••••••••" required autocomplete="current-password">
+              <input type="password" id="login-input-pass" class="login-input-field" placeholder="••••••••" required autocomplete="current-password" maxlength="50">
             </div>
-            <span class="password-rule-hint">Exige no mínimo 8 caracteres + caractere especial</span>
+            <span class="password-rule-hint">Exige entre 8 e 50 caracteres + caractere especial</span>
           </div>
 
           <button type="submit" id="btn-login-submit" class="btn-login-submit">
@@ -304,7 +304,7 @@
       <!-- Botão Adicionar Operador (+), solto da tabela e abaixo da coluna Leg. -->
       <div class="add-operator-wrapper no-print">
         <button id="btn-add-operator" class="btn-add-op-solo" title="Adicionar Operador" aria-label="Adicionar Operador">
-          + OPR
+          + 
         </button>
       </div>
 
@@ -435,17 +435,17 @@
           
           <div class="form-group" id="group-name" style="display: none;">
             <label for="auth-name">Nome Completo / Guerra:</label>
-            <input type="text" id="auth-name" class="input-form" placeholder="Ex: 2S Silva">
+            <input type="text" id="auth-name" class="input-form" placeholder="Ex: 2S Silva" maxlength="60">
           </div>
 
           <div class="form-group">
             <label for="auth-username">Usuário / Identificação:</label>
-            <input type="text" id="auth-username" class="input-form" placeholder="Ex: silva" required autocomplete="username">
+            <input type="text" id="auth-username" class="input-form" placeholder="Ex: silva" required autocomplete="username" maxlength="40">
           </div>
 
           <div class="form-group">
             <label for="auth-password">Senha:</label>
-            <input type="password" id="auth-password" class="input-form" placeholder="••••••••" required autocomplete="current-password">
+            <input type="password" id="auth-password" class="input-form" placeholder="••••••••" required autocomplete="current-password" maxlength="50">
           </div>
 
           <div class="auth-actions">
@@ -470,7 +470,7 @@
       <div class="modal-body">
         <div class="form-group">
           <label for="input-edit-user-name">Posto/Graduação e Nome de Guerra:</label>
-          <input type="text" id="input-edit-user-name" class="input-form" placeholder="Ex: 2S Túlio, 1S Silva" maxlength="50" autocomplete="name">
+          <input type="text" id="input-edit-user-name" class="input-form" placeholder="Ex: 2S Túlio, 1S Silva" maxlength="60" autocomplete="name">
           <span class="form-hint">Esse nome é exibido no topo da tela e associado às ações e edições da escala.</span>
         </div>
         <div id="edit-user-error" class="auth-error hidden"></div>
@@ -486,6 +486,6 @@
   </div>
   <!-- Fim de #app-screen -->
 
-  <script src="scripts.js?v=20261007_1527"></script>
+  <script src="scripts.js?v=20261007_1700"></script>
 </body>
 </html>

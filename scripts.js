@@ -227,11 +227,15 @@
     }
   }
 
-  function handleSessionExpired() {
+  function handleSessionExpired(msg) {
     currentUser = null;
     localStorage.removeItem('escala_current_user');
     updateAuthViewState();
-    alert('Sua sessão expirou ou é inválida. Por favor, faça login novamente para salvar as alterações.');
+    const alertMsg = msg || 'Sua sessão expirou ou é inválida. Por favor, faça login novamente.';
+    if (loginScreenError) {
+      loginScreenError.textContent = alertMsg;
+      loginScreenError.classList.remove('hidden');
+    }
   }
 
   async function syncWithCloud() {
@@ -240,6 +244,11 @@
     if (!currentUser || !currentUser.token) {
       alert('Você precisa estar conectado para sincronizar as alterações com a nuvem.');
       openAuthModal();
+      return false;
+    }
+
+    if (currentUser.role !== 'admin') {
+      alert('Acesso restrito: seu usuário possui perfil de operador (apenas visualização). Apenas administradores podem salvar ou alterar escalas na nuvem.');
       return false;
     }
 
@@ -260,7 +269,17 @@
       if (res.status === 401) {
         isSavingToCloud = false;
         updateSaveButtonUI('error');
-        handleSessionExpired();
+        handleSessionExpired('Sua sessão expirou. Por favor, faça login novamente para salvar as alterações.');
+        alert('Sua sessão expirou. Faça login novamente.');
+        return false;
+      }
+
+      if (res.status === 403) {
+        isSavingToCloud = false;
+        updateSaveButtonUI('error');
+        triggerSaveIndicator('Permissão negada');
+        const errJson = await res.json().catch(() => ({}));
+        alert(errJson.error || 'Apenas administradores podem salvar alterações na escala.');
         return false;
       }
 
@@ -287,10 +306,19 @@
   }
 
   async function loadMonthFromCloud(year, month, sector) {
+    if (!currentUser || !currentUser.token) return;
     triggerSaveIndicator('Carregando...', 'cloud-syncing');
     try {
       const url = `/api/escala?year=${year}&month=${month}&sector=${encodeURIComponent(sector)}`;
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${currentUser.token}`
+        }
+      });
+      if (res.status === 401) {
+        handleSessionExpired('Sua sessão anterior expirou ou precisa ser renovada. Faça login novamente.');
+        return;
+      }
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data) {
@@ -912,8 +940,8 @@
   let authMode = 'login'; // 'login' ou 'register'
 
   function isValidPasswordRule(password) {
-    if (!password || password.length < 8) return false;
-    const specialCharRegex = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/;
+    if (!password || password.length < 8 || password.length > 50) return false;
+    const specialCharRegex = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/;
     return specialCharRegex.test(password);
   }
 
@@ -948,10 +976,11 @@
       loginScreen.style.display = 'none';
       appScreen.style.display = 'block';
       if (userDisplayName) {
-        userDisplayName.textContent = currentUser.name || currentUser.username;
+        const roleLabel = currentUser.role === 'admin' ? ' (Admin)' : ' (Operador)';
+        userDisplayName.textContent = (currentUser.name || currentUser.username) + roleLabel;
       }
       if (btnAuthUser) {
-        btnAuthUser.title = `Conectado como ${currentUser.name || currentUser.username}. Clique para sair.`;
+        btnAuthUser.title = `Conectado como ${currentUser.name || currentUser.username} (${currentUser.role || 'operador'}). Clique para sair.`;
       }
       if (btnEditUserName) {
         btnEditUserName.title = `Editar nome ou posto/graduação (${currentUser.name || currentUser.username})`;
@@ -1016,6 +1045,15 @@
       loginScreenError.textContent = '';
     }
 
+    if (username.length > 40) {
+      if (loginScreenError) {
+        loginScreenError.textContent = 'O nome de usuário deve ter no máximo 40 caracteres.';
+        loginScreenError.classList.remove('hidden');
+      }
+      loginInputUser.focus();
+      return;
+    }
+
     if (activeLoginTab === 'register' && !name) {
       if (loginScreenError) {
         loginScreenError.textContent = 'Informe seu nome ou nome de guerra.';
@@ -1025,10 +1063,19 @@
       return;
     }
 
-    // Validação da regra: 8 caracteres + caractere especial
+    if (activeLoginTab === 'register' && name.length > 60) {
+      if (loginScreenError) {
+        loginScreenError.textContent = 'O nome deve ter no máximo 60 caracteres.';
+        loginScreenError.classList.remove('hidden');
+      }
+      loginInputName.focus();
+      return;
+    }
+
+    // Validação da regra: 8 a 50 caracteres + caractere especial
     if (!isValidPasswordRule(password)) {
       if (loginScreenError) {
-        loginScreenError.textContent = 'A senha deve conter no mínimo 8 caracteres e pelo menos um caractere especial (ex: !@#$%).';
+        loginScreenError.textContent = 'A senha deve conter entre 8 e 50 caracteres e pelo menos um caractere especial (ex: !@#$%).';
         loginScreenError.classList.remove('hidden');
       }
       loginInputPass.focus();
@@ -1129,9 +1176,25 @@
       return;
     }
 
+    if (username.length > 40) {
+      if (authErrorMsg) {
+        authErrorMsg.textContent = 'O usuário deve ter no máximo 40 caracteres.';
+        authErrorMsg.classList.remove('hidden');
+      }
+      return;
+    }
+
+    if (authMode === 'register' && name.length > 60) {
+      if (authErrorMsg) {
+        authErrorMsg.textContent = 'O nome deve ter no máximo 60 caracteres.';
+        authErrorMsg.classList.remove('hidden');
+      }
+      return;
+    }
+
     if (authMode === 'register' && !isValidPasswordRule(password)) {
       if (authErrorMsg) {
-        authErrorMsg.textContent = 'A senha deve conter no mínimo 8 caracteres e pelo menos um caractere especial (ex: !@#$%).';
+        authErrorMsg.textContent = 'A senha deve conter entre 8 e 50 caracteres e pelo menos um caractere especial (ex: !@#$%).';
         authErrorMsg.classList.remove('hidden');
       }
       return;
@@ -1162,6 +1225,7 @@
         localStorage.setItem('escala_current_user', JSON.stringify(currentUser));
         updateAuthViewState();
         closeAuthModal();
+        loadMonthFromCloud(state.year, state.month, state.sector);
       } else {
         alert('Operador cadastrado com sucesso!');
         closeAuthModal();
@@ -1189,7 +1253,7 @@
       errEl.textContent = '';
       errEl.classList.add('hidden');
     }
-    const currentName = currentUser?.name || currentUser?.username || (userDisplayName ? userDisplayName.textContent.trim() : '');
+    const currentName = currentUser?.name || currentUser?.username || '';
     const input = document.getElementById('input-edit-user-name');
     if (input) {
       input.value = (currentName && currentName !== 'Operador') ? currentName : (currentUser?.name || '');
@@ -1233,6 +1297,14 @@
       return;
     }
 
+    if (newName.length > 60) {
+      if (editUserError) {
+        editUserError.textContent = 'O nome deve ter no máximo 60 caracteres.';
+        editUserError.classList.remove('hidden');
+      }
+      return;
+    }
+
     if (!currentUser) {
       currentUser = {
         name: newName,
@@ -1240,7 +1312,7 @@
       };
     }
 
-    const oldName = currentUser.name || currentUser.username || (userDisplayName ? userDisplayName.textContent.trim() : '');
+    const oldName = currentUser.name || currentUser.username || '';
 
     if (btnSaveEditUser) {
       btnSaveEditUser.disabled = true;
@@ -1262,8 +1334,9 @@
           if (res.ok) {
             const json = await res.json();
             if (json.token) currentUser.token = json.token;
-            if (json.user && json.user.name) {
-              currentUser.name = json.user.name;
+            if (json.user) {
+              if (json.user.name) currentUser.name = json.user.name;
+              if (json.user.role) currentUser.role = json.user.role;
             } else {
               currentUser.name = newName;
             }
@@ -1283,7 +1356,8 @@
 
       // 3. Atualiza o texto imediatamente na barra superior
       if (userDisplayName) {
-        userDisplayName.textContent = newName;
+        const roleLabel = (currentUser && currentUser.role === 'admin') ? ' (Admin)' : ' (Operador)';
+        userDisplayName.textContent = newName + roleLabel;
       }
 
       // 4. Propaga alteração em toda a escala onde o nome antigo constar como operador

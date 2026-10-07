@@ -1,8 +1,21 @@
 // Endpoint da API Cloudflare Pages Functions para Autenticação e Usuários
 // Rota: /api/auth
 
-// Segredo para assinatura de tokens (pode ser sobrescrito via secret AUTH_SECRET no Cloudflare)
-const DEFAULT_SECRET = 'escala_sec_auth_token_key_2026_d1';
+// Segredo para assinatura de tokens deve ser fornecido via variável de ambiente AUTH_SECRET no Cloudflare
+export function getAuthSecret(env) {
+  const secret = env && env.AUTH_SECRET;
+  if (!secret || typeof secret !== 'string' || secret.trim() === '') {
+    throw new Error('Configuração pendente: a variável AUTH_SECRET precisa ser configurada nas variáveis de ambiente do Cloudflare Pages.');
+  }
+  return secret.trim();
+}
+
+// Extrai token Bearer de forma segura e insensível a maiúsculas/minúsculas
+export function extractBearerToken(request) {
+  const authHeader = request.headers.get('Authorization') || '';
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : null;
+}
 
 // Memória temporária de instâncias para mitigação de força bruta simples
 const loginAttempts = new Map();
@@ -106,6 +119,9 @@ async function verifyPassword(password, storedHash) {
 // GERAÇÃO DE TOKEN DE SESSÃO ASSINADO (HMAC-SHA256 - Validade 7 dias)
 // ---------------------------------------------------------------------------
 export async function createSessionToken(user, secret) {
+  if (!secret || typeof secret !== 'string') {
+    throw new Error('AUTH_SECRET ausente para assinatura de token');
+  }
   const enc = new TextEncoder();
   const payload = {
     id: user.id,
@@ -118,7 +134,7 @@ export async function createSessionToken(user, secret) {
   const payloadBase64 = btoa(JSON.stringify(payload));
   const key = await crypto.subtle.importKey(
     'raw',
-    enc.encode(secret || DEFAULT_SECRET),
+    enc.encode(secret),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign']
@@ -132,6 +148,7 @@ export async function createSessionToken(user, secret) {
 
 export async function verifySessionToken(token, secret) {
   if (!token || typeof token !== 'string') return null;
+  if (!secret || typeof secret !== 'string') return null;
   const parts = token.split('.');
   if (parts.length !== 2) return null;
 
@@ -141,7 +158,7 @@ export async function verifySessionToken(token, secret) {
   try {
     const key = await crypto.subtle.importKey(
       'raw',
-      enc.encode(secret || DEFAULT_SECRET),
+      enc.encode(secret),
       { name: 'HMAC', hash: 'SHA-256' },
       false,
       ['verify']
@@ -182,12 +199,25 @@ export async function onRequestPost(context) {
   const db = env.DB;
   const clientIp = request.headers.get('cf-connecting-ip') || 'unknown';
 
+  let authSecret;
+  try {
+    authSecret = getAuthSecret(env);
+  } catch (cfgErr) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Erro de configuração do servidor: a variável AUTH_SECRET precisa ser configurada nas configurações do Cloudflare Pages.'
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
   try {
     const body = await request.json();
     const action = body.action || 'login';
 
     function sanitizeUsername(u) {
-      if (!u) return '';
+      if (!u || typeof u !== 'string') return '';
       return String(u)
         .toLowerCase()
         .normalize('NFD')
@@ -208,11 +238,17 @@ export async function onRequestPost(context) {
       }
 
       const { username, password } = body;
-      const cleanUsername = sanitizeUsername(username);
-
-      if (!cleanUsername || !password) {
+      if (!username || !password || typeof password !== 'string') {
         return new Response(JSON.stringify({ success: false, error: 'Informe usuário e senha' }), {
           status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const cleanUsername = sanitizeUsername(username);
+      if (!cleanUsername || cleanUsername.length > 40 || password.length > 50) {
+        return new Response(JSON.stringify({ success: false, error: 'Usuário ou senha incorretos' }), {
+          status: 401,
           headers: { 'Content-Type': 'application/json' }
         });
       }
@@ -241,7 +277,26 @@ export async function onRequestPost(context) {
 
       resetAttempts(clientIp);
 
-      const token = await createSessionToken(user, env.AUTH_SECRET);
+      // Garante bootstrap do dono/administrador:
+      // Se for id = 1 ou se não houver nenhum admin cadastrado e este for o usuário mais antigo, promove para 'admin'
+      if (user.role !== 'admin') {
+        let shouldPromote = (user.id === 1);
+        if (!shouldPromote) {
+          const adminCheck = await db.prepare("SELECT COUNT(*) as total FROM users WHERE role = 'admin'").first();
+          if (Number(adminCheck?.total || 0) === 0) {
+            const firstUser = await db.prepare("SELECT id FROM users ORDER BY id ASC LIMIT 1").first();
+            if (firstUser && firstUser.id === user.id) {
+              shouldPromote = true;
+            }
+          }
+        }
+        if (shouldPromote) {
+          await db.prepare("UPDATE users SET role = 'admin' WHERE id = ?").bind(user.id).run();
+          user.role = 'admin';
+        }
+      }
+
+      const token = await createSessionToken(user, authSecret);
 
       return new Response(JSON.stringify({
         success: true,
@@ -262,19 +317,33 @@ export async function onRequestPost(context) {
       const cleanUsername = sanitizeUsername(username);
       const cleanName = (typeof name === 'string' ? name.trim() : '');
 
-      if (!cleanUsername || !password || !cleanName) {
+      if (!cleanUsername || !password || !cleanName || typeof password !== 'string') {
         return new Response(JSON.stringify({ success: false, error: 'Preencha todos os campos obrigatórios' }), {
           status: 400,
           headers: { 'Content-Type': 'application/json' }
         });
       }
 
-      // Validação de senha: min 8 caracteres + caractere especial
+      if (cleanUsername.length < 3 || cleanUsername.length > 40) {
+        return new Response(JSON.stringify({ success: false, error: 'O nome de usuário deve ter entre 3 e 40 caracteres' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      if (cleanName.length > 60) {
+        return new Response(JSON.stringify({ success: false, error: 'O nome deve ter no máximo 60 caracteres' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Validação de senha: min 8 e max 50 caracteres + caractere especial
       const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(password);
-      if (password.length < 8 || !hasSpecial) {
+      if (password.length < 8 || password.length > 50 || !hasSpecial) {
         return new Response(JSON.stringify({
           success: false,
-          error: 'A senha deve ter no mínimo 8 caracteres e conter pelo menos um caractere especial (!@#$...).'
+          error: 'A senha deve ter entre 8 e 50 caracteres e conter pelo menos um caractere especial (!@#$...).'
         }), {
           status: 400,
           headers: { 'Content-Type': 'application/json' }
@@ -296,7 +365,8 @@ export async function onRequestPost(context) {
       // Regra de Bootstrap: Primeiro usuário registrado no sistema torna-se 'admin'.
       // Qualquer registro posterior será estritamente 'operator' (bloqueia injeção de role: 'admin').
       const countResult = await db.prepare('SELECT COUNT(*) as total FROM users').first();
-      const assignedRole = (countResult && countResult.total === 0) ? 'admin' : 'operator';
+      const totalUsers = Number(countResult?.total || 0);
+      const assignedRole = (totalUsers === 0) ? 'admin' : 'operator';
 
       const passHash = await hashPassword(password);
       await db
@@ -309,7 +379,7 @@ export async function onRequestPost(context) {
         .bind(cleanUsername)
         .first();
 
-      const token = await createSessionToken(newUser, env.AUTH_SECRET);
+      const token = await createSessionToken(newUser, authSecret);
 
       return new Response(JSON.stringify({
         success: true,
@@ -320,9 +390,14 @@ export async function onRequestPost(context) {
         headers: { 'Content-Type': 'application/json' }
       });
     } else if (action === 'update_name') {
-      const authHeader = request.headers.get('Authorization') || '';
-      const token = authHeader.replace(/^Bearer\s+/i, '');
-      const session = await verifySessionToken(token, env.AUTH_SECRET);
+      const token = extractBearerToken(request);
+      if (!token) {
+        return new Response(JSON.stringify({ success: false, error: 'Sessão não autenticada' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      const session = await verifySessionToken(token, authSecret);
       if (!session) {
         return new Response(JSON.stringify({ success: false, error: 'Sessão inválida ou expirada' }), {
           status: 401,
@@ -339,10 +414,24 @@ export async function onRequestPost(context) {
         });
       }
 
-      await db.prepare('UPDATE users SET name = ? WHERE id = ?').bind(cleanName, session.sub).run();
+      if (cleanName.length > 60) {
+        return new Response(JSON.stringify({ success: false, error: 'O nome deve ter no máximo 60 caracteres' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
 
-      const updatedUser = await db.prepare('SELECT id, username, name, role FROM users WHERE id = ?').bind(session.sub).first();
-      const newToken = await createSessionToken(updatedUser, env.AUTH_SECRET);
+      await db.prepare('UPDATE users SET name = ? WHERE id = ?').bind(cleanName, session.id).run();
+
+      const updatedUser = await db.prepare('SELECT id, username, name, role FROM users WHERE id = ?').bind(session.id).first();
+      if (!updatedUser) {
+        return new Response(JSON.stringify({ success: false, error: 'Usuário não encontrado' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const newToken = await createSessionToken(updatedUser, authSecret);
 
       return new Response(JSON.stringify({
         success: true,

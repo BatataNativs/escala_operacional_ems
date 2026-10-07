@@ -337,7 +337,7 @@
                 <button id="btn-open-extra-hours" class="btn btn-xs btn-obs no-print" title="Lançar horas adicionais de PIMO e Instrução MET">
                   + PIMO | Instrução MET
                 </button>
-                <div class="stats-badge" id="stats-team-average" title="Média de horas da equipe conforme memorial de cálculo">Média da Equipe: --</div>
+                <div class="stats-badge" id="stats-team-average" title="Piso regulamentar H17 (127h) | Média da equipe conforme ICA 63-33">H17: 127 | -- / OPR</div>
               </div>
             </div>
             <div class="stats-table-wrapper">
@@ -483,9 +483,45 @@
   </div>
   <!-- Fim de #modal-edit-user -->
 
+  <!-- Modal de Alerta de Conflito de Escala (ICA 63-33, Tab. 30) -->
+  <div id="modal-conflict-warning" class="modal-overlay hidden">
+    <div class="modal-content modal-conflict-content">
+      <div class="modal-header modal-header-warning">
+        <div class="modal-title-group">
+          <div class="modal-title-with-icon">
+            <span class="warning-icon-badge">⚠️</span>
+            <h3 class="modal-title">Alerta de Conflito de Escala</h3>
+          </div>
+          <span class="modal-subtitle">ICA 63-33 / Tabela 30: Período de não trabalho pós-RISAER</span>
+        </div>
+        <button type="button" id="btn-close-conflict" class="modal-close" title="Fechar">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="conflict-alert-box" id="conflict-modal-message">
+          <!-- Mensagem dinâmica -->
+        </div>
+        <div class="conflict-legal-note">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0; margin-top:2px;">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+          <div>
+            <strong>Regra da ICA 63-33 (item 8.4.1.6 e Tabela 30):</strong> Após um serviço de escala distinta de 24h (como o RISAER), é obrigatório cumprir um período mínimo de <strong>24 horas de não trabalho</strong>. O início do turno <strong>M</strong> (06h00) interrompe esse intervalo de descanso regulamentar.
+          </div>
+        </div>
+        <div class="modal-actions-group">
+          <button type="button" id="btn-cancel-conflict" class="btn btn-secondary">Cancelar</button>
+          <button type="button" id="btn-confirm-conflict" class="btn btn-danger-confirm">Confirmar Mesmo Assim</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Fim de #modal-conflict-warning -->
+
   </div>
   <!-- Fim de #app-screen -->
 
-  <script src="scripts.js?v=20261007_1900"></script>
+  <script src="scripts.js?v=20261007_2040"></script>
 </body>
 </html>

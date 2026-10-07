@@ -102,6 +102,15 @@
   const inputEditUserName = document.getElementById('input-edit-user-name');
   const editUserError = document.getElementById('edit-user-error');
   const lastChangeDisplay = document.getElementById('last-change-display');
+
+  // Modal de Conflito de Escala (ICA 63-33)
+  const modalConflictWarning = document.getElementById('modal-conflict-warning');
+  const conflictModalMessage = document.getElementById('conflict-modal-message');
+  const btnCloseConflict = document.getElementById('btn-close-conflict');
+  const btnCancelConflict = document.getElementById('btn-cancel-conflict');
+  const btnConfirmConflict = document.getElementById('btn-confirm-conflict');
+  let pendingConflictAction = null;
+
   const modalAuth = document.getElementById('modal-auth');
   const btnCloseAuth = document.getElementById('btn-close-auth');
   const tabLogin = document.getElementById('tab-login');
@@ -484,6 +493,160 @@
     thead.innerHTML = tr1 + tr2;
   }
 
+  // =========================================================================
+  // REGRAS DE NEGÓCIO E ALERTAS DA ICA 63-33
+  // =========================================================================
+
+  // Detecta sequências de mais de 5 folgas consecutivas (> 5 dias sem serviço operacional - ICA 63-33, item 8.4.5.1)
+  function getConsecutiveOffDaysMap(op, daysInfo) {
+    const map = {};
+    let currentStreak = [];
+
+    for (let i = 0; i < daysInfo.length; i++) {
+      const d = daysInfo[i];
+      const val = (op.shifts && op.shifts[d.dayNumber]) ? op.shifts[d.dayNumber].trim() : '';
+      const isOff = (!val);
+
+      if (isOff) {
+        currentStreak.push(d.dayNumber);
+      } else {
+        if (currentStreak.length > 5) {
+          const len = currentStreak.length;
+          const startDay = currentStreak[0];
+          const endDay = currentStreak[len - 1];
+          currentStreak.forEach((dayNum, idx) => {
+            let type = 'mid';
+            if (idx === 0) type = 'start';
+            else if (idx === len - 1) type = 'end';
+            map[dayNum] = { type, length: len, startDay, endDay };
+          });
+        }
+        currentStreak = [];
+      }
+    }
+
+    if (currentStreak.length > 5) {
+      const len = currentStreak.length;
+      const startDay = currentStreak[0];
+      const endDay = currentStreak[len - 1];
+      currentStreak.forEach((dayNum, idx) => {
+        let type = 'mid';
+        if (idx === 0) type = 'start';
+        else if (idx === len - 1) type = 'end';
+        map[dayNum] = { type, length: len, startDay, endDay };
+      });
+    }
+
+    return map;
+  }
+
+  // Detecta conflito de 24h de descanso pós-RISAER -> Turno M (ICA 63-33, Tab. 30)
+  function getOperatorConflictsMap(op, daysInfo) {
+    const map = {};
+    if (!op || !op.shifts) return map;
+
+    daysInfo.forEach(d => {
+      const day = d.dayNumber;
+      const val = op.shifts[day];
+      if (val === 'M') {
+        const prevVal = op.shifts[day - 1];
+        if (prevVal === 'R') {
+          map[day] = {
+            type: 'RM_CONFLICT',
+            prevDay: day - 1,
+            message: `⚠️ Conflito de Escala (ICA 63-33, Tab. 30): Turno M às 06h00 imediatamente após serviço RISAER (24h) no dia ${day - 1}. É exigido intervalo mínimo de 24 horas de não trabalho.`
+          };
+        }
+      }
+    });
+
+    return map;
+  }
+
+  // Atualiza em tempo real as células da linha do operador (streaks de folga e conflito)
+  function refreshOperatorRowCells(opId) {
+    const op = state.operators.find(o => o.id === opId);
+    if (!op) return;
+
+    const daysInfo = getMonthDaysInfo(state.year, state.month);
+    const offMap = getConsecutiveOffDaysMap(op, daysInfo);
+    const conflictMap = getOperatorConflictsMap(op, daysInfo);
+
+    daysInfo.forEach(d => {
+      const selector = `[data-op-id="${opId}"] [data-day="${d.dayNumber}"]`;
+      const td = tbody.querySelector(selector);
+      if (!td) return;
+
+      const val = (op.shifts && op.shifts[d.dayNumber]) || '';
+      td.textContent = val;
+      td.setAttribute('data-val', val);
+
+      td.classList.remove('streak-off-start', 'streak-off-mid', 'streak-off-end', 'cell-conflict-rm');
+
+      let cellTitle = '';
+      const offInfo = offMap[d.dayNumber];
+      if (offInfo) {
+        if (offInfo.type === 'start') td.classList.add('streak-off-start');
+        else if (offInfo.type === 'end') td.classList.add('streak-off-end');
+        else td.classList.add('streak-off-mid');
+        cellTitle = `Período com ${offInfo.length} dias consecutivos sem escala operacional (ICA 63-33, item 8.4.5.1)`;
+      }
+
+      const conflictInfo = conflictMap[d.dayNumber];
+      if (conflictInfo) {
+        td.classList.add('cell-conflict-rm');
+        cellTitle = conflictInfo.message;
+      }
+
+      if (cellTitle) {
+        td.setAttribute('title', cellTitle);
+      } else {
+        td.removeAttribute('title');
+      }
+    });
+  }
+
+  // Gerenciamento do Modal de Alerta de Conflito R -> M
+  function showConflictModal({ opName, day, prevDay, val, onConfirm, onCancel }) {
+    if (!modalConflictWarning || !conflictModalMessage) {
+      const msg = val === 'M'
+        ? `Atenção (ICA 63-33, Tab. 30):\nO operador [${opName}] está escalado em RISAER (24h) no dia ${prevDay}.\nÉ obrigatório intervalo de 24h de descanso após RISAER, impedindo o turno M (06h00) no dia ${day}.\n\nDeseja confirmar a escalação mesmo assim?`
+        : `Atenção (ICA 63-33, Tab. 30):\nO operador [${opName}] já possui turno M (06h00) no dia ${day}.\nAo escalar RISAER (24h) no dia ${prevDay}, não haverá 24h de descanso antes do turno M.\n\nDeseja confirmar a escalação mesmo assim?`;
+      if (confirm(msg)) {
+        onConfirm();
+      } else {
+        onCancel();
+      }
+      return;
+    }
+
+    pendingConflictAction = { onConfirm, onCancel };
+
+    if (val === 'M') {
+      conflictModalMessage.innerHTML = `O operador <strong>${escapeHtml(opName)}</strong> está escalado em <strong>RISAER (24h)</strong> no dia <strong>${prevDay}</strong>.<br><br>A assunção do turno <strong>M (06h00 às 13h30)</strong> no dia <strong>${day}</strong> não cumpre o intervalo regulamentar mínimo de 24 horas de não trabalho pós-RISAER.`;
+    } else {
+      conflictModalMessage.innerHTML = `O operador <strong>${escapeHtml(opName)}</strong> já possui turno <strong>M (06h00 às 13h30)</strong> no dia <strong>${day}</strong>.<br><br>A escala em <strong>RISAER (24h)</strong> no dia <strong>${prevDay}</strong> não permite o intervalo regulamentar mínimo de 24 horas de descanso antes do início do turno M.`;
+    }
+
+    modalConflictWarning.classList.remove('hidden');
+    if (btnCancelConflict) btnCancelConflict.focus();
+  }
+
+  function closeConflictModal(confirmed = false) {
+    if (modalConflictWarning) {
+      modalConflictWarning.classList.add('hidden');
+    }
+    if (pendingConflictAction) {
+      const action = pendingConflictAction;
+      pendingConflictAction = null;
+      if (confirmed) {
+        action.onConfirm();
+      } else {
+        action.onCancel();
+      }
+    }
+  }
+
   function renderBody() {
     const daysInfo = getMonthDaysInfo(state.year, state.month);
     const searchTerm = (searchOperator.value || '').trim().toLowerCase();
@@ -541,17 +704,38 @@
         </div>
       </td>`;
 
-      // Células de Turno (1..31)
+      // Células de Turno (1..31) com detecção de blocos de folga (>5 dias) e conflitos ICA 63-33
+      const offMap = getConsecutiveOffDaysMap(op, daysInfo);
+      const conflictMap = getOperatorConflictsMap(op, daysInfo);
+
       daysInfo.forEach(d => {
-        const val = op.shifts[d.dayNumber] || '';
+        const val = (op.shifts && op.shifts[d.dayNumber]) || '';
         const weekendClass = d.isWeekend ? ' col-weekend' : '';
         const todayClass = (isCurrentYearMonth && d.dayNumber === currentDay) ? ' col-today' : '';
-        html += `<td class="cell-shift col-day${weekendClass}${todayClass}" 
+
+        let streakClass = '';
+        let cellTitle = '';
+        const offInfo = offMap[d.dayNumber];
+        if (offInfo) {
+          if (offInfo.type === 'start') streakClass = ' streak-off-start';
+          else if (offInfo.type === 'end') streakClass = ' streak-off-end';
+          else streakClass = ' streak-off-mid';
+          cellTitle = `Período com ${offInfo.length} dias consecutivos sem escala operacional (ICA 63-33, item 8.4.5.1)`;
+        }
+
+        let conflictClass = '';
+        const conflictInfo = conflictMap[d.dayNumber];
+        if (conflictInfo) {
+          conflictClass = ' cell-conflict-rm';
+          cellTitle = conflictInfo.message;
+        }
+
+        html += `<td class="cell-shift col-day${weekendClass}${todayClass}${streakClass}${conflictClass}" 
                     tabindex="${currentMode === 'edit' ? 0 : -1}" 
                     data-val="${escapeHtml(val)}" 
                     data-op-id="${safeOpId}" 
                     data-day="${d.dayNumber}" 
-                    data-is-sub="false">${escapeHtml(val)}</td>`;
+                    data-is-sub="false"${cellTitle ? ` title="${escapeHtml(cellTitle)}"` : ''}>${escapeHtml(val)}</td>`;
       });
       html += `</tr>`;
 
@@ -726,6 +910,16 @@
       const e10TotalDiasStr = String(stats.etapa10xTotalDias).padStart(2, '0');
       const e10UteisDiasStr = String(stats.etapa10xUteisDias).padStart(2, '0');
 
+      const isHoursAlert = (stats.totalHours < 127 || stats.totalHours > 188);
+      const hoursAlertClass = isHoursAlert ? ' total-hours-alert' : '';
+
+      let totalTooltip = `Total: ${formatHours(stats.totalHours)}`;
+      if (stats.totalHours < 127) {
+        totalTooltip += ` (Abaixo do mínimo regulamentar de 127h para H17 - ICA 63-33, Tab. 18-A)`;
+      } else if (stats.totalHours > 188) {
+        totalTooltip += ` (Acima do limite máximo regulamentar de 188h - ICA 63-33, item 4.2.6.1)`;
+      }
+
       rowsHtml += `<tr class="row-stat-operator${rowDimmed}${rowMatched}" data-op-id="${escapeHtml(op.id)}">
         <td class="col-stat-leg"><span class="stat-leg-badge">${escapeHtml(op.leg)}</span></td>
         <td class="col-stat-op" title="${escapeHtml(op.name)}">${escapeHtml(op.name)}</td>
@@ -735,7 +929,7 @@
         <td class="col-stat-risaer">${formatHours(stats.risaerHours)}</td>
         <td class="col-stat-pimo">${formatHours(stats.pimo)}</td>
         <td class="col-stat-met">${formatHours(stats.instrucaoMet)}</td>
-        <td class="col-stat-total"><strong>${formatHours(stats.totalHours)}</strong></td>
+        <td class="col-stat-total${hoursAlertClass}" title="${escapeHtml(totalTooltip)}"><strong>${formatHours(stats.totalHours)}</strong></td>
         <td class="col-stat-e5">
           <div class="etapa-split-cell">
             <div class="etapa-info-subcol">
@@ -776,14 +970,15 @@
     }
 
     if (statsTeamAverage) {
-      statsTeamAverage.textContent = `Média: ${teamAverageHours.toFixed(2).replace('.', ',')}h (${teamCeilHours}h) / OPR`;
+      statsTeamAverage.textContent = `H17: 127 | ${teamCeilHours} / OPR`;
+      statsTeamAverage.title = `Piso regulamentar H17: 127h | Média calculada da equipe: ${teamAverageHours.toFixed(2).replace('.', ',')}h (arredondar para o superior: ${teamCeilHours}h) / OPR (ICA 63-33, Anexo A e Tab. 18-A)`;
     }
 
     if (statsMemorialFooter) {
       const formulaPimo = totalTeamPimo > 0 ? ` + ${totalTeamPimo}h PIMO` : '';
       const formulaRisaer = totalTeamR > 0 ? ` + (${totalTeamR}×24h RISAER)` : '';
       const formulaMet = totalTeamInstrucaoMet > 0 ? ` + (${totalTeamInstrucaoMet}h MET / ${totalOps})` : '';
-      statsMemorialFooter.innerHTML = `<span><strong>Memorial de cálculo:</strong> [(${totalDays}×17h + ${totalDays}×0,75h${formulaRisaer}${formulaPimo}) / ${totalOps}${formulaMet}] = <strong>${teamAverageHours.toFixed(2).replace('.', ',')}h</strong> &rarr; <strong>${teamCeilHours}h</strong> (arredondar sempre para o inteiro superior)</span>`;
+      statsMemorialFooter.innerHTML = `<span><strong>Memorial de cálculo (ICA 63-33 / Base H17: 127h):</strong> [(${totalDays}×17h + ${totalDays}×0,75h${formulaRisaer}${formulaPimo}) / ${totalOps}${formulaMet}] = <strong>${teamAverageHours.toFixed(2).replace('.', ',')}h</strong> &rarr; <strong>${teamCeilHours}h / OPR</strong> (arredondar sempre para o inteiro superior)</span>`;
     }
   }
 
@@ -1413,7 +1608,7 @@
   // =========================================================================
   // EDIÇÃO DE CÉLULAS & ATALHOS DE TECLADO
   // =========================================================================
-  function updateCellShift(opId, day, val) {
+  function updateCellShift(opId, day, val, skipConflictCheck = false) {
     const op = state.operators.find(o => o.id === opId);
     if (!op) return;
 
@@ -1421,6 +1616,51 @@
     val = val.trim().toUpperCase();
 
     if (val === oldVal) return;
+
+    // Alerta de Conflito R -> M (ICA 63-33, Tab. 30: intervalo obrigatório de 24h de descanso)
+    if (!skipConflictCheck) {
+      if (val === 'M') {
+        const prevVal = (op.shifts && op.shifts[day - 1]) ? op.shifts[day - 1] : '';
+        if (prevVal === 'R') {
+          const opName = op.name || 'Operador';
+          showConflictModal({
+            opName,
+            day,
+            prevDay: day - 1,
+            val: 'M',
+            onConfirm: () => {
+              updateCellShift(opId, day, val, true);
+            },
+            onCancel: () => {
+              const selector = `[data-op-id="${opId}"] [data-day="${day}"]`;
+              const td = tbody.querySelector(selector);
+              if (td) td.focus();
+            }
+          });
+          return;
+        }
+      } else if (val === 'R') {
+        const nextVal = (op.shifts && op.shifts[day + 1]) ? op.shifts[day + 1] : '';
+        if (nextVal === 'M') {
+          const opName = op.name || 'Operador';
+          showConflictModal({
+            opName,
+            day: day + 1,
+            prevDay: day,
+            val: 'R',
+            onConfirm: () => {
+              updateCellShift(opId, day, val, true);
+            },
+            onCancel: () => {
+              const selector = `[data-op-id="${opId}"] [data-day="${day}"]`;
+              const td = tbody.querySelector(selector);
+              if (td) td.focus();
+            }
+          });
+          return;
+        }
+      }
+    }
 
     if (val) op.shifts[day] = val;
     else delete op.shifts[day];
@@ -1436,13 +1676,8 @@
 
     saveState();
 
-    // Atualiza apenas a célula específica no DOM para performance instantânea
-    const selector = `[data-op-id="${opId}"] [data-day="${day}"]`;
-    const td = tbody.querySelector(selector);
-    if (td) {
-      td.textContent = val;
-      td.setAttribute('data-val', val);
-    }
+    // Atualiza dinamicamente as células da linha (inclusive streaks de folga e conflitos)
+    refreshOperatorRowCells(opId);
 
     // Recalcula e atualiza instantaneamente a tabela de Carga Horária & Etapas
     renderStatsTable();
@@ -1480,8 +1715,10 @@
       e.preventDefault();
       const val = key.toUpperCase();
       updateCellShift(opId, day, val);
-      // Avança para o próximo dia automaticamente
-      moveFocusCell(td, 0, 1);
+      // Avança para o próximo dia se não abriu o modal de conflito
+      if (!modalConflictWarning || modalConflictWarning.classList.contains('hidden')) {
+        moveFocusCell(td, 0, 1);
+      }
       return;
     }
 
@@ -1756,8 +1993,22 @@
       }
     });
 
-    // Tecla Enter ou Escape global para fechar caixa de seleção de turno ou operador selecionado
+    // Tecla Enter ou Escape global para fechar caixa de seleção de turno, modal de conflito ou operador selecionado
     document.addEventListener('keydown', (e) => {
+      // Se o modal de conflito estiver visível
+      if (modalConflictWarning && !modalConflictWarning.classList.contains('hidden')) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          closeConflictModal(false);
+          return;
+        }
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          closeConflictModal(true);
+          return;
+        }
+      }
+
       if (e.key === 'Escape' || e.key === 'Enter') {
         // Fecha popover de turno se estiver aberto
         if (shiftPopover.style.display !== 'none') {
@@ -2263,6 +2514,24 @@
       modalEditUser.addEventListener('click', (e) => {
         if (e.target === modalEditUser) {
           closeEditUserModal();
+        }
+      });
+    }
+
+    // Modal de Alerta de Conflito de Escala (ICA 63-33)
+    if (btnCloseConflict) {
+      btnCloseConflict.addEventListener('click', () => closeConflictModal(false));
+    }
+    if (btnCancelConflict) {
+      btnCancelConflict.addEventListener('click', () => closeConflictModal(false));
+    }
+    if (btnConfirmConflict) {
+      btnConfirmConflict.addEventListener('click', () => closeConflictModal(true));
+    }
+    if (modalConflictWarning) {
+      modalConflictWarning.addEventListener('click', (e) => {
+        if (e.target === modalConflictWarning) {
+          closeConflictModal(false);
         }
       });
     }

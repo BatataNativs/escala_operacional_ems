@@ -608,24 +608,12 @@
 
   // Gerenciamento do Modal de Alerta de Conflito R -> M
   function showConflictModal({ opName, day, prevDay, val, onConfirm, onCancel }) {
-    if (!modalConflictWarning || !conflictModalMessage) {
-      const msg = val === 'M'
-        ? `Atenção (ICA 63-33, Tab. 30):\nO operador [${opName}] está escalado em RISAER (24h) no dia ${prevDay}.\nÉ obrigatório intervalo de 24h de descanso após RISAER, impedindo o turno M (06h00) no dia ${day}.\n\nDeseja confirmar a escalação mesmo assim?`
-        : `Atenção (ICA 63-33, Tab. 30):\nO operador [${opName}] já possui turno M (06h00) no dia ${day}.\nAo escalar RISAER (24h) no dia ${prevDay}, não haverá 24h de descanso antes do turno M.\n\nDeseja confirmar a escalação mesmo assim?`;
-      if (confirm(msg)) {
-        onConfirm();
-      } else {
-        onCancel();
-      }
-      return;
-    }
-
     pendingConflictAction = { onConfirm, onCancel };
 
     if (val === 'M') {
       conflictModalMessage.innerHTML = `O operador <strong>${escapeHtml(opName)}</strong> está escalado em <strong>RISAER (24h)</strong> no dia <strong>${prevDay}</strong>.<br><br>A assunção do turno <strong>M (06h00 às 13h30)</strong> no dia <strong>${day}</strong> não cumpre o intervalo regulamentar mínimo de 24 horas de não trabalho pós-RISAER.`;
     } else {
-      conflictModalMessage.innerHTML = `O operador <strong>${escapeHtml(opName)}</strong> já possui turno <strong>M (06h00 às 13h30)</strong> no dia <strong>${day}</strong>.<br><br>A escala em <strong>RISAER (24h)</strong> no dia <strong>${prevDay}</strong> não permite o intervalo regulamentar mínimo de 24 horas de descanso antes do início do turno M.`;
+      conflictModalMessage.innerHTML = `O operador <strong>${escapeHtml(opName)}</strong> já possui turno <strong>M (06h00 às 13h30)</strong> no dia <strong>${day}</strong>.<br><br>Escalá-lo em <strong>RISAER</strong> no dia <strong>${prevDay}</strong> não permite o intervalo regulamentar mínimo de 24 horas de descanso antes do início do turno M.`;
     }
 
     modalConflictWarning.classList.remove('hidden');

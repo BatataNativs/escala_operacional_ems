@@ -18,12 +18,7 @@
     year: 2026,
     month: 9, // Outubro (0-indexed)
     sector: 'EMS-SP',
-    operators: [
-      { id: 'op-1', leg: 'A', name: 'SO J. Nunes', shifts: {}, subShifts: {} },
-      { id: 'op-2', leg: 'B', name: '2S Natividade', shifts: {}, subShifts: {} },
-      { id: 'op-3', leg: 'C', name: '1S André', shifts: {}, subShifts: {} },
-      { id: 'op-4', leg: 'D', name: 'Operador D.O', shifts: {}, subShifts: {} }
-    ],
+    operators: [],
     observations: []
   };
 

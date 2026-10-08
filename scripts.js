@@ -53,12 +53,18 @@
   const btnClearSearch = document.getElementById('btn-clear-search');
   const saveStatus = document.getElementById('save-status');
 
-  // Botão Explícito de Salvar Alterações na Nuvem
+  // Botão Explícito de Salvar Alterações na Nuvem & Desfazer
   const btnSaveCloud = document.getElementById('btn-save-cloud');
+  const btnUndoChanges = document.getElementById('btn-undo-changes');
   const saveStatusSubtext = document.getElementById('save-status-subtext');
   let hasUnsavedChanges = false;
   let isSavingToCloud = false;
   let successResetTimeout = null;
+
+  // Histórico de alterações não salvas (desfazer antes de salvar)
+  let unsavedHistory = [];
+  let baselineSavedJson = JSON.stringify(state);
+  const MAX_UNDO_HISTORY = 40;
 
   const thead = document.getElementById('schedule-thead');
   const tbody = document.getElementById('schedule-tbody');
@@ -170,6 +176,69 @@
     return JSON.parse(JSON.stringify(DEFAULT_DATA));
   }
 
+  function updateUndoButtonUI() {
+    if (!btnUndoChanges) return;
+    const canUndo = unsavedHistory.length > 0;
+    btnUndoChanges.disabled = !canUndo;
+    if (canUndo) {
+      btnUndoChanges.setAttribute('title', `Desfazer última alteração não salva (${unsavedHistory.length} na fila) [Ctrl+Z]`);
+    } else {
+      btnUndoChanges.setAttribute('title', 'Nenhuma alteração não salva para desfazer');
+    }
+  }
+
+  function pushUnsavedSnapshot() {
+    try {
+      const snapshot = JSON.stringify(state);
+      // Evita duplicar se for idêntico ao último snapshot empilhado
+      if (unsavedHistory.length > 0 && unsavedHistory[unsavedHistory.length - 1] === snapshot) {
+        return;
+      }
+      unsavedHistory.push(snapshot);
+      if (unsavedHistory.length > MAX_UNDO_HISTORY) {
+        unsavedHistory.shift();
+      }
+      updateUndoButtonUI();
+    } catch (e) {
+      console.warn('Erro ao salvar snapshot de desfazer:', e);
+    }
+  }
+
+  function handleUndo() {
+    if (unsavedHistory.length === 0) return;
+    
+    // Desempilha o estado anterior
+    const prevSnapshot = unsavedHistory.pop();
+    if (!prevSnapshot) return;
+
+    try {
+      state = JSON.parse(prevSnapshot);
+      
+      // Salva no localStorage sem forçar nova marcação se voltou ao baseline
+      const key = getMonthStorageKey(state.year, state.month, state.sector);
+      localStorage.setItem(key, JSON.stringify(state));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+
+      // Verifica se o estado atual voltou exatamente ao baseline salvo
+      const currentJson = JSON.stringify(state);
+      if (currentJson === baselineSavedJson) {
+        hasUnsavedChanges = false;
+        updateSaveButtonUI('clean');
+        triggerSaveIndicator('Alterações desfeitas');
+      } else {
+        hasUnsavedChanges = true;
+        updateSaveButtonUI('pending');
+        triggerSaveIndicator('Desfeito', 'cloud-syncing');
+      }
+
+      updateUndoButtonUI();
+      renderAll();
+      renderLastChange();
+    } catch (err) {
+      console.error('Erro ao restaurar estado anterior:', err);
+    }
+  }
+
   function updateSaveButtonUI(status) {
     if (!btnSaveCloud || !saveStatusSubtext) return;
     if (successResetTimeout) {
@@ -218,6 +287,7 @@
       saveStatusSubtext.textContent = 'nenhuma alteração';
       btnSaveCloud.disabled = false;
     }
+    updateUndoButtonUI();
   }
 
   function saveState(markAsPending = true) {
@@ -292,6 +362,9 @@
         if (json.success) {
           hasUnsavedChanges = false;
           isSavingToCloud = false;
+          baselineSavedJson = JSON.stringify(state);
+          unsavedHistory = [];
+          updateUndoButtonUI();
           updateSaveButtonUI('success');
           triggerSaveIndicator('☁️ Nuvem sincronizada', 'cloud-synced');
           return true;
@@ -329,8 +402,11 @@
           state = json.data;
           const key = getMonthStorageKey(year, month, sector);
           localStorage.setItem(key, JSON.stringify(state));
+          baselineSavedJson = JSON.stringify(state);
+          unsavedHistory = [];
           hasUnsavedChanges = false;
           updateSaveButtonUI('clean');
+          updateUndoButtonUI();
           triggerSaveIndicator('☁️ Nuvem sincronizada', 'cloud-synced');
           renderAll();
           return;
@@ -360,7 +436,10 @@
       });
       state.observations = [];
     }
+    baselineSavedJson = JSON.stringify(state);
+    unsavedHistory = [];
     updateSaveButtonUI('clean');
+    updateUndoButtonUI();
     triggerSaveIndicator('Salvo local');
     renderAll();
   }
@@ -986,6 +1065,7 @@
       subShifts: {}
     };
 
+    pushUnsavedSnapshot();
     state.operators.push(newOp);
     saveState();
     recordLastChange(`Operador [${newOp.name}] foi adicionado`);
@@ -1006,6 +1086,7 @@
     const op = state.operators.find(o => o.id === opId);
     if (!op) return;
     if (confirm(`Deseja remover o operador "${op.name}" da escala?`)) {
+      pushUnsavedSnapshot();
       const opName = op.name;
       state.operators = state.operators.filter(o => o.id !== opId);
       if (selectedOpId === opId) {
@@ -1026,6 +1107,7 @@
     const targetIndex = index + direction;
     if (targetIndex < 0 || targetIndex >= state.operators.length) return;
 
+    pushUnsavedSnapshot();
     const [movedOp] = state.operators.splice(index, 1);
     state.operators.splice(targetIndex, 0, movedOp);
 
@@ -1038,6 +1120,7 @@
 
   function addObservation() {
     if (currentMode !== 'edit') return;
+    pushUnsavedSnapshot();
     state.observations.push('Nova observação de escala;');
     saveState();
     recordLastChange('Observações atualizadas');
@@ -1054,6 +1137,7 @@
   }
 
   function deleteObservation(index) {
+    pushUnsavedSnapshot();
     state.observations.splice(index, 1);
     saveState();
     recordLastChange('Observações atualizadas');
@@ -1095,6 +1179,7 @@
 
   function saveExtraHoursModal() {
     if (!extraHoursTbody) return;
+    pushUnsavedSnapshot();
     const rows = extraHoursTbody.querySelectorAll('tr[data-op-id]');
     rows.forEach(tr => {
       const opId = tr.getAttribute('data-op-id');
@@ -1649,6 +1734,8 @@
         }
       }
     }
+
+    pushUnsavedSnapshot();
 
     if (val) op.shifts[day] = val;
     else delete op.shifts[day];
@@ -2297,6 +2384,7 @@
           if (op) {
             const newName = el.textContent.trim();
             if (op.name !== newName) {
+              pushUnsavedSnapshot();
               op.name = newName;
               recordLastChange(`Operador renomeado para [${op.name}]`);
             }
@@ -2355,6 +2443,7 @@
       if (action === 'edit-leg') {
         const newLeg = el.textContent.trim();
         if (op.leg !== newLeg) {
+          pushUnsavedSnapshot();
           op.leg = newLeg;
           saveState();
           recordLastChange(`Legenda alterada para ${op.leg} (${op.name})`);
@@ -2363,6 +2452,7 @@
       } else if (action === 'edit-name') {
         const newName = el.textContent.trim();
         if (op.name !== newName) {
+          pushUnsavedSnapshot();
           op.name = newName;
           closeOpNameEditing(el);
           saveState();
@@ -2393,6 +2483,7 @@
         const index = parseInt(el.getAttribute('data-index'), 10);
         const newText = el.textContent.trim();
         if (state.observations[index] !== newText) {
+          pushUnsavedSnapshot();
           state.observations[index] = newText;
           saveState();
           recordLastChange('Observações atualizadas');
@@ -2524,13 +2615,35 @@
       });
     }
 
-    // 14. Botão de Salvar Alterações na Nuvem
+    // 14. Botão de Salvar Alterações na Nuvem & Desfazer
     if (btnSaveCloud) {
       btnSaveCloud.addEventListener('click', () => {
         if (isSavingToCloud) return;
         syncWithCloud();
       });
     }
+
+    if (btnUndoChanges) {
+      btnUndoChanges.addEventListener('click', () => {
+        handleUndo();
+      });
+    }
+
+    // Atalho global Ctrl+Z (Cmd+Z no Mac) para desfazer a última alteração não salva
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
+        // Ignora se o foco estiver dentro de um campo de digitação de texto padrão
+        const tag = (e.target.tagName || '').toLowerCase();
+        const isEditable = e.target.isContentEditable;
+        if (tag === 'input' || tag === 'textarea' || isEditable) {
+          return;
+        }
+        if (unsavedHistory.length > 0) {
+          e.preventDefault();
+          handleUndo();
+        }
+      }
+    });
 
     // Aviso do navegador para evitar perda de dados no F5 ou fechamento acidental
     window.addEventListener('beforeunload', (e) => {

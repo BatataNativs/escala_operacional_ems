@@ -803,6 +803,68 @@ body.dark-theme .last-change-display {
   box-shadow: var(--shadow-sm);
 }
 
+.btn-undo-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+  background: var(--bg-surface);
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm);
+  white-space: nowrap;
+}
+
+.btn-undo-action:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-medium);
+  color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.btn-undo-action:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-undo-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: transparent;
+  border-color: var(--border-light);
+  color: var(--text-muted);
+}
+
+.btn-undo-action .undo-icon {
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+body.dark-theme .btn-undo-action {
+  background: rgba(30, 41, 59, 0.7);
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+body.dark-theme .btn-undo-action:hover:not(:disabled) {
+  background: rgba(51, 65, 85, 0.8);
+  border-color: #475569;
+  color: #38bdf8;
+}
+
+body.dark-theme .btn-undo-action:disabled {
+  opacity: 0.35;
+  background: transparent;
+  border-color: #334155;
+  color: #64748b;
+}
+
 .save-status-subtext {
   font-size: 0.65rem;
   font-weight: 600;

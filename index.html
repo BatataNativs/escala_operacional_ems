@@ -265,7 +265,7 @@
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
-          <input type="text" id="search-operator" placeholder="Destacar operador...">
+          <input type="text" id="search-operator" placeholder="Destacar OPR ...">
           <button id="btn-clear-search" class="btn-clear" style="display:none">&times;</button>
         </div>
 
@@ -286,6 +286,10 @@
                 <path d="M12 2a10 10 0 0 1 10 10"></path>
               </svg>
               <span class="btn-save-title">Alterações Salvas</span>
+            </button>
+            <button type="button" id="btn-undo-changes" class="btn-undo-action" title="Desfazer última alteração não salva (Ctrl+Z)" disabled>
+              <span class="undo-icon" aria-hidden="true">↩</span>
+              <span>Desfazer</span>
             </button>
             <span id="last-change-display" class="last-change-display" title="Histórico da última modificação"></span>
           </div>
@@ -522,6 +526,6 @@
   </div>
   <!-- Fim de #app-screen -->
 
-  <script src="scripts.js?v=20261007_2105"></script>
+  <script src="scripts.js?v=20261007_2115"></script>
 </body>
 </html>

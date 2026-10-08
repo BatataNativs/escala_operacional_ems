@@ -11,7 +11,7 @@
   --color-weekend: #4338ca;
   --color-col-header: #1e293b;
   --color-days-header: #2563eb;
-  --color-operator-row: #fefce8; /* Creme suave de alta legibilidade, sem cansar a vista */
+  --color-operator-row: #ffffff; /* Creme suave de alta legibilidade, sem cansar a vista */
   --color-operator-row-hover: #edcd6383; /* Destaque caloroso e suave ao passar o cursor */
   --color-operator-row-text: #0f172a; /* Texto de alto contraste e máxima nitidez */
   --color-operator-row-text-hover: #0f172a; /* Cor do texto do operador ao passar o cursor sobre a linha */
@@ -19,7 +19,7 @@
   --color-leg-cell-hover: #edcd6383; /* Cor da legenda ao passar o cursor */
   --color-leg-cell-text: #ffffff; /* Cor do texto da legenda */
   --color-leg-cell-text-hover: #111111; /* Cor do texto da legenda ao passar o cursor */
-  --color-blue-stripe: #c5c8cc; /* Linha contínua entre operadores */
+  --color-blue-stripe: #556a86; /* Linha contínua entre operadores */
   --color-blue-stripe-text: #64748b;
   --color-today-line: #2563eb; /* Linhas/bordas especiais demarcadoras do dia atual */
   --color-obs-header: #347cda;
@@ -629,7 +629,7 @@ body.dark-theme .stepper-arrow:hover {
   background: var(--input-bg);
   color: var(--text-main);
   border-radius: var(--radius-sm);
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   font-weight: 500;
   outline: none;
   width: 190px;
@@ -1992,11 +1992,11 @@ th.col-stat-briefing {
 }
 
 .stats-table tr:hover td {
-  background-color: rgba(0, 0, 0, 0.03);
+  background-color: rgba(178, 210, 255, 0.495);
 }
 
 body.dark-theme .stats-table tr:hover td {
-  background-color: rgba(255, 255, 255, 0.04);
+  background-color: rgba(255, 255, 255, 0.308);
 }
 
 /* Colunas individuais */

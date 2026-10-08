@@ -1,4 +1,7 @@
 # Arquivos locais e de controle de trabalho
+seed_operators.sql
+migration_add_column.sql
+gerar_senha.js
 arquivo de cálculo carga horário/
 Escala - Out 2026.ods
 cartao-nota.html

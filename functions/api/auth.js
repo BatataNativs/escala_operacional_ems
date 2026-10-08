@@ -128,6 +128,7 @@ export async function createSessionToken(user, secret) {
     username: user.username,
     name: user.name,
     role: user.role,
+    must_change_password: Boolean(user.must_change_password),
     exp: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7 dias
   };
 
@@ -254,7 +255,7 @@ export async function onRequestPost(context) {
       }
 
       const user = await db
-        .prepare('SELECT id, username, password_hash, name, role FROM users WHERE username = ?')
+        .prepare('SELECT * FROM users WHERE username = ?')
         .bind(cleanUsername)
         .first();
 
@@ -277,105 +278,129 @@ export async function onRequestPost(context) {
 
       resetAttempts(clientIp);
 
-      const token = await createSessionToken(user, authSecret);
+      const mustChange = user.must_change_password === 1;
+      const safeUser = {
+        id: user.id,
+        username: user.username,
+        name: user.name,
+        role: user.role,
+        must_change_password: mustChange
+      };
+
+      const token = await createSessionToken(safeUser, authSecret);
 
       return new Response(JSON.stringify({
         success: true,
         message: 'Login realizado com sucesso',
         token,
-        user: {
-          id: user.id,
-          username: user.username,
-          name: user.name,
-          role: user.role
-        }
+        user: safeUser
       }), {
         headers: { 'Content-Type': 'application/json' }
       });
 
     } else if (action === 'register') {
-      const { username, password, name } = body;
-      const cleanUsername = sanitizeUsername(username);
-      const cleanName = (typeof name === 'string' ? name.trim() : '');
+      // Cadastro público desativado por política de segurança para eliminar risco de Pre-Account Takeover
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'O cadastro público de novos operadores está desativado. As contas devem ser criadas pela administração da escala.'
+      }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' }
+      });
 
-      if (!cleanUsername || !password || !cleanName || typeof password !== 'string') {
-        return new Response(JSON.stringify({ success: false, error: 'Preencha todos os campos obrigatórios' }), {
-          status: 400,
+    } else if (action === 'change_password') {
+      const token = extractBearerToken(request);
+      if (!token) {
+        return new Response(JSON.stringify({ success: false, error: 'Sessão não autenticada' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      const session = await verifySessionToken(token, authSecret);
+      if (!session) {
+        return new Response(JSON.stringify({ success: false, error: 'Sessão inválida ou expirada' }), {
+          status: 401,
           headers: { 'Content-Type': 'application/json' }
         });
       }
 
-      if (cleanUsername.length < 3 || cleanUsername.length > 40) {
-        return new Response(JSON.stringify({ success: false, error: 'O nome de usuário deve ter entre 3 e 40 caracteres' }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-
-      if (cleanName.length > 60) {
-        return new Response(JSON.stringify({ success: false, error: 'O nome deve ter no máximo 60 caracteres' }), {
+      const { currentPassword, newPassword } = body;
+      if (!currentPassword || !newPassword || typeof currentPassword !== 'string' || typeof newPassword !== 'string') {
+        return new Response(JSON.stringify({ success: false, error: 'Informe a senha atual e a nova senha' }), {
           status: 400,
           headers: { 'Content-Type': 'application/json' }
         });
       }
 
       // Validação de senha: min 8 e max 50 caracteres + caractere especial
-      const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(password);
-      if (password.length < 8 || password.length > 50 || !hasSpecial) {
+      const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(newPassword);
+      if (newPassword.length < 8 || newPassword.length > 50 || !hasSpecial) {
         return new Response(JSON.stringify({
           success: false,
-          error: 'A senha deve ter entre 8 e 50 caracteres e conter pelo menos um caractere especial (!@#$...).'
+          error: 'A nova senha deve ter entre 8 e 50 caracteres e conter pelo menos um caractere especial (!@#$...).'
         }), {
           status: 400,
           headers: { 'Content-Type': 'application/json' }
         });
       }
 
-      // Lista restrita de operadores autorizados da escala
-      const ALLOWED_USERNAMES = ['natividadedan', 'jnunesjnf', 'andreapr'];
-      if (!ALLOWED_USERNAMES.includes(cleanUsername.toLowerCase())) {
+      if (currentPassword === newPassword) {
         return new Response(JSON.stringify({
           success: false,
-          error: 'Identificação não autorizada. Apenas operadores autorizados podem criar acesso.'
+          error: 'A nova senha deve ser diferente da senha atual.'
         }), {
-          status: 403,
+          status: 400,
           headers: { 'Content-Type': 'application/json' }
         });
       }
 
-      const existing = await db
-        .prepare('SELECT id FROM users WHERE username = ?')
-        .bind(cleanUsername)
-        .first();
-
-      if (existing) {
-        return new Response(JSON.stringify({ success: false, error: 'Este nome de usuário já está em uso' }), {
-          status: 409,
+      const user = await db.prepare('SELECT * FROM users WHERE id = ?').bind(session.id).first();
+      if (!user) {
+        return new Response(JSON.stringify({ success: false, error: 'Usuário não encontrado' }), {
+          status: 404,
           headers: { 'Content-Type': 'application/json' }
         });
       }
 
-      // Todos os usuários autenticados possuem o mesmo perfil operacional
-      const assignedRole = 'operator';
+      const currentMatches = await verifyPassword(currentPassword, user.password_hash);
+      if (!currentMatches) {
+        return new Response(JSON.stringify({ success: false, error: 'A senha atual informada está incorreta.' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
 
-      const passHash = await hashPassword(password);
-      await db
-        .prepare('INSERT INTO users (username, password_hash, name, role) VALUES (?, ?, ?, ?)')
-        .bind(cleanUsername, passHash, cleanName, assignedRole)
-        .run();
+      const newHash = await hashPassword(newPassword);
 
-      const newUser = await db
-        .prepare('SELECT id, username, name, role FROM users WHERE username = ?')
-        .bind(cleanUsername)
-        .first();
+      try {
+        await db
+          .prepare('UPDATE users SET password_hash = ?, must_change_password = 0 WHERE id = ?')
+          .bind(newHash, session.id)
+          .run();
+      } catch (colErr) {
+        // Fallback caso a coluna must_change_password ainda não exista no D1
+        await db
+          .prepare('UPDATE users SET password_hash = ? WHERE id = ?')
+          .bind(newHash, session.id)
+          .run();
+      }
 
-      const token = await createSessionToken(newUser, authSecret);
+      const updatedUser = await db.prepare('SELECT * FROM users WHERE id = ?').bind(session.id).first();
+      const safeUser = {
+        id: updatedUser.id,
+        username: updatedUser.username,
+        name: updatedUser.name,
+        role: updatedUser.role,
+        must_change_password: false
+      };
+
+      const newToken = await createSessionToken(safeUser, authSecret);
 
       return new Response(JSON.stringify({
         success: true,
-        message: 'Cadastro realizado com sucesso!',
-        token,
-        user: newUser
+        message: 'Senha alterada com sucesso!',
+        token: newToken,
+        user: safeUser
       }), {
         headers: { 'Content-Type': 'application/json' }
       });

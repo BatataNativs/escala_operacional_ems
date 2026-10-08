@@ -87,10 +87,6 @@
   const loginScreen = document.getElementById('login-screen');
   const appScreen = document.getElementById('app-screen');
   const formLoginScreen = document.getElementById('form-login-screen');
-  const tabLoginSignin = document.getElementById('tab-login-signin');
-  const tabLoginSignup = document.getElementById('tab-login-signup');
-  const loginGroupName = document.getElementById('login-group-name');
-  const loginInputName = document.getElementById('login-input-name');
   const loginInputUser = document.getElementById('login-input-user');
   const loginInputPass = document.getElementById('login-input-pass');
   const loginDialogTitle = document.getElementById('login-dialog-title');
@@ -109,6 +105,17 @@
   const editUserError = document.getElementById('edit-user-error');
   const lastChangeDisplay = document.getElementById('last-change-display');
 
+  // Banner e Modal de Troca de Senha
+  const bannerMustChangePassword = document.getElementById('banner-must-change-password');
+  const modalChangePassword = document.getElementById('modal-change-password');
+  const formChangePassword = document.getElementById('form-change-password');
+  const inputCurrentPass = document.getElementById('input-current-pass');
+  const inputNewPass = document.getElementById('input-new-pass');
+  const inputConfirmPass = document.getElementById('input-confirm-pass');
+  const changePassError = document.getElementById('change-pass-error');
+  const changePassSuccess = document.getElementById('change-pass-success');
+  const btnSaveChangePassword = document.getElementById('btn-save-change-password');
+
   // Modal de Conflito de Escala (ICA 63-33)
   const modalConflictWarning = document.getElementById('modal-conflict-warning');
   const conflictModalMessage = document.getElementById('conflict-modal-message');
@@ -116,18 +123,6 @@
   const btnCancelConflict = document.getElementById('btn-cancel-conflict');
   const btnConfirmConflict = document.getElementById('btn-confirm-conflict');
   let pendingConflictAction = null;
-
-  const modalAuth = document.getElementById('modal-auth');
-  const btnCloseAuth = document.getElementById('btn-close-auth');
-  const tabLogin = document.getElementById('tab-login');
-  const tabRegister = document.getElementById('tab-register');
-  const formAuth = document.getElementById('form-auth');
-  const authErrorMsg = document.getElementById('auth-error-msg');
-  const groupName = document.getElementById('group-name');
-  const authName = document.getElementById('auth-name');
-  const authUsername = document.getElementById('auth-username');
-  const authPassword = document.getElementById('auth-password');
-  const btnSubmitAuth = document.getElementById('btn-submit-auth');
 
   let currentUser = loadCurrentUser();
   let syncTimeout = null;
@@ -309,6 +304,7 @@
   function handleSessionExpired(msg) {
     currentUser = null;
     localStorage.removeItem('escala_current_user');
+    clearRenderedDom();
     updateAuthViewState();
     const alertMsg = msg || 'Sua sessão expirou ou é inválida. Por favor, faça login novamente.';
     if (loginScreenError) {
@@ -1247,10 +1243,21 @@
       if (btnEditUserName) {
         btnEditUserName.title = `Editar nome ou posto/graduação (${currentUser.name || currentUser.username})`;
       }
+      // Alerta de primeiro acesso / necessidade de trocar senha inicial
+      if (bannerMustChangePassword) {
+        if (currentUser.must_change_password) {
+          bannerMustChangePassword.classList.remove('hidden');
+        } else {
+          bannerMustChangePassword.classList.add('hidden');
+        }
+      }
     } else {
       // Não autenticado: exibe tela de login e oculta aplicação
       loginScreen.style.display = 'flex';
       appScreen.style.display = 'none';
+      if (bannerMustChangePassword) {
+        bannerMustChangePassword.classList.add('hidden');
+      }
       if (loginScreenError) {
         loginScreenError.classList.add('hidden');
         loginScreenError.textContent = '';
@@ -1258,34 +1265,6 @@
       setTimeout(() => {
         if (loginInputUser) loginInputUser.focus();
       }, 50);
-    }
-  }
-
-  let activeLoginTab = 'login'; // 'login' ou 'register'
-
-  function switchLoginScreenTab(mode) {
-    activeLoginTab = mode;
-    if (loginScreenError) {
-      loginScreenError.classList.add('hidden');
-      loginScreenError.textContent = '';
-    }
-
-    if (mode === 'login') {
-      if (tabLoginSignin) tabLoginSignin.classList.add('active');
-      if (tabLoginSignup) tabLoginSignup.classList.remove('active');
-      if (loginGroupName) loginGroupName.style.display = 'none';
-      if (loginDialogTitle) loginDialogTitle.textContent = 'Acesso ao Sistema';
-      if (loginDialogDesc) loginDialogDesc.textContent = 'Informe suas credenciais para acessar a escala';
-      if (btnLoginSubmit) btnLoginSubmit.innerHTML = '<span>Entrar</span>';
-      if (loginInputUser) loginInputUser.focus();
-    } else {
-      if (tabLoginSignin) tabLoginSignin.classList.remove('active');
-      if (tabLoginSignup) tabLoginSignup.classList.add('active');
-      if (loginGroupName) loginGroupName.style.display = 'flex';
-      if (loginDialogTitle) loginDialogTitle.textContent = 'Criar Nova Conta';
-      if (loginDialogDesc) loginDialogDesc.textContent = 'Cadastre seu usuário para acessar e gerenciar a escala';
-      if (btnLoginSubmit) btnLoginSubmit.innerHTML = '<span>Criar Conta e Acessar</span>';
-      if (loginInputName) loginInputName.focus();
     }
   }
 
@@ -1300,75 +1279,52 @@
       .replace(/[^a-z0-9._-]/g, '')
       .trim();
     const password = loginInputPass.value;
-    const name = loginInputName ? loginInputName.value.trim() : '';
 
     if (loginScreenError) {
       loginScreenError.classList.add('hidden');
       loginScreenError.textContent = '';
     }
 
-    if (username.length > 40) {
+    if (!username || !password) {
       if (loginScreenError) {
-        loginScreenError.textContent = 'O nome de usuário deve ter no máximo 40 caracteres.';
+        loginScreenError.textContent = 'Informe usuário e senha para continuar.';
         loginScreenError.classList.remove('hidden');
       }
-      loginInputUser.focus();
-      return;
-    }
-
-    if (activeLoginTab === 'register' && !name) {
-      if (loginScreenError) {
-        loginScreenError.textContent = 'Informe seu nome ou nome de guerra.';
-        loginScreenError.classList.remove('hidden');
-      }
-      if (loginInputName) loginInputName.focus();
-      return;
-    }
-
-    if (activeLoginTab === 'register' && name.length > 60) {
-      if (loginScreenError) {
-        loginScreenError.textContent = 'O nome deve ter no máximo 60 caracteres.';
-        loginScreenError.classList.remove('hidden');
-      }
-      loginInputName.focus();
-      return;
-    }
-
-    // Validação da regra: 8 a 50 caracteres + caractere especial
-    if (!isValidPasswordRule(password)) {
-      if (loginScreenError) {
-        loginScreenError.textContent = 'A senha deve conter entre 8 e 50 caracteres e pelo menos um caractere especial (ex: !@#$%).';
-        loginScreenError.classList.remove('hidden');
-      }
-      loginInputPass.focus();
       return;
     }
 
     btnLoginSubmit.disabled = true;
-    btnLoginSubmit.innerHTML = activeLoginTab === 'login' ? '<span>Verificando...</span>' : '<span>Cadastrando...</span>';
+    btnLoginSubmit.innerHTML = '<span>Verificando...</span>';
 
     try {
       const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: activeLoginTab,
+          action: 'login',
           username,
-          password,
-          name: activeLoginTab === 'register' ? (name || username) : undefined
+          password
         })
       });
 
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json.error || (activeLoginTab === 'login' ? 'Usuário ou senha incorretos' : 'Erro ao cadastrar'));
+        throw new Error(json.error || 'Usuário ou senha incorretos');
       }
 
       currentUser = { ...json.user, token: json.token };
       localStorage.setItem('escala_current_user', JSON.stringify(currentUser));
       updateAuthViewState();
+      renderAll();
       // Carrega dados da nuvem
       loadMonthFromCloud(state.year, state.month, state.sector);
+
+      // Se for primeiro acesso com senha inicial, abre automaticamente o modal de troca de senha
+      if (currentUser.must_change_password) {
+        setTimeout(() => {
+          openChangePasswordModal();
+        }, 600);
+      }
     } catch (err) {
       if (loginScreenError) {
         loginScreenError.textContent = err.message || 'Erro na autenticação';
@@ -1376,8 +1332,16 @@
       }
     } finally {
       btnLoginSubmit.disabled = false;
-      btnLoginSubmit.innerHTML = activeLoginTab === 'login' ? '<span>Entrar</span>' : '<span>Criar Conta e Acessar</span>';
+      btnLoginSubmit.innerHTML = '<span>Entrar</span>';
     }
+  }
+
+  function clearRenderedDom() {
+    if (thead) thead.innerHTML = '';
+    if (tbody) tbody.innerHTML = '';
+    if (obsList) obsList.innerHTML = '';
+    if (statsTbody) statsTbody.innerHTML = '';
+    if (statsMemorialFooter) statsMemorialFooter.innerHTML = '';
   }
 
   function handleLogout() {
@@ -1385,123 +1349,172 @@
     if (confirm(`Deseja realmente sair da sessão de ${nome}?`)) {
       currentUser = null;
       localStorage.removeItem('escala_current_user');
+
+      // Limpa dados de cache da escala da máquina local para segurança do terminal
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith('escala_') || k === STORAGE_KEY)) {
+          if (k !== 'escala_theme') {
+            keysToRemove.push(k);
+          }
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+
+      // Reseta estado em memória para o padrão limpo
+      state = JSON.parse(JSON.stringify(DEFAULT_DATA));
+      unsavedHistory = [];
+      hasUnsavedChanges = false;
+      updateSaveButtonUI('clean');
+
       if (loginInputPass) loginInputPass.value = '';
+      clearRenderedDom();
       updateAuthViewState();
     }
   }
 
-  function openAuthModal() {
-    if (modalAuth) {
-      switchAuthTab('register');
-      if (authErrorMsg) authErrorMsg.classList.add('hidden');
-      if (formAuth) formAuth.reset();
-      modalAuth.classList.remove('hidden');
-      if (authUsername) authUsername.focus();
+  // =========================================================================
+  // MODAL DE ALTERAÇÃO DE SENHA DO OPERADOR
+  // =========================================================================
+  function openChangePasswordModal(e) {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    if (!modalChangePassword) return;
+    if (changePassError) {
+      changePassError.classList.add('hidden');
+      changePassError.textContent = '';
+    }
+    if (changePassSuccess) {
+      changePassSuccess.classList.add('hidden');
+      changePassSuccess.textContent = '';
+    }
+    if (formChangePassword) formChangePassword.reset();
+    modalChangePassword.classList.remove('hidden');
+    modalChangePassword.style.display = 'flex';
+    setTimeout(() => {
+      if (inputCurrentPass) inputCurrentPass.focus();
+    }, 50);
+  }
+
+  function closeChangePasswordModal(e) {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    if (modalChangePassword) {
+      modalChangePassword.classList.add('hidden');
+      modalChangePassword.style.display = 'none';
     }
   }
 
-  function closeAuthModal() {
-    if (modalAuth) modalAuth.classList.add('hidden');
-  }
-
-  function switchAuthTab(mode) {
-    authMode = mode;
-    const titleEl = document.getElementById('auth-modal-title');
-    if (mode === 'login') {
-      if (tabLogin) tabLogin.classList.add('active');
-      if (tabRegister) tabRegister.classList.remove('active');
-      if (groupName) groupName.style.display = 'none';
-      if (btnSubmitAuth) btnSubmitAuth.textContent = 'Entrar';
-      if (titleEl) titleEl.textContent = 'Entrar no Sistema';
-    } else {
-      if (tabLogin) tabLogin.classList.remove('active');
-      if (tabRegister) tabRegister.classList.add('active');
-      if (groupName) groupName.style.display = 'flex';
-      if (btnSubmitAuth) btnSubmitAuth.textContent = 'Cadastrar Operador';
-      if (titleEl) titleEl.textContent = 'Cadastrar Novo Operador';
-    }
-    if (authErrorMsg) authErrorMsg.classList.add('hidden');
-  }
-
-  async function handleAuthSubmit(e) {
+  async function handleSaveNewPassword(e) {
     e.preventDefault();
-    if (authErrorMsg) authErrorMsg.classList.add('hidden');
-    const username = authUsername.value.trim();
-    const password = authPassword.value;
-    const name = authName ? authName.value.trim() : '';
+    if (!currentUser || !currentUser.token) {
+      handleSessionExpired();
+      return;
+    }
 
-    if (!username || !password) {
-      if (authErrorMsg) {
-        authErrorMsg.textContent = 'Informe usuário e senha';
-        authErrorMsg.classList.remove('hidden');
+    const currentPassword = inputCurrentPass ? inputCurrentPass.value : '';
+    const newPassword = inputNewPass ? inputNewPass.value : '';
+    const confirmPassword = inputConfirmPass ? inputConfirmPass.value : '';
+
+    if (changePassError) {
+      changePassError.classList.add('hidden');
+      changePassError.textContent = '';
+    }
+    if (changePassSuccess) {
+      changePassSuccess.classList.add('hidden');
+      changePassSuccess.textContent = '';
+    }
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      if (changePassError) {
+        changePassError.textContent = 'Preencha todos os campos obrigatórios.';
+        changePassError.classList.remove('hidden');
       }
       return;
     }
 
-    if (username.length > 40) {
-      if (authErrorMsg) {
-        authErrorMsg.textContent = 'O usuário deve ter no máximo 40 caracteres.';
-        authErrorMsg.classList.remove('hidden');
+    if (newPassword !== confirmPassword) {
+      if (changePassError) {
+        changePassError.textContent = 'A confirmação de senha não confere com a nova senha.';
+        changePassError.classList.remove('hidden');
       }
+      if (inputConfirmPass) inputConfirmPass.focus();
       return;
     }
 
-    if (authMode === 'register' && name.length > 60) {
-      if (authErrorMsg) {
-        authErrorMsg.textContent = 'O nome deve ter no máximo 60 caracteres.';
-        authErrorMsg.classList.remove('hidden');
+    if (!isValidPasswordRule(newPassword)) {
+      if (changePassError) {
+        changePassError.textContent = 'A nova senha deve ter entre 8 e 50 caracteres e pelo menos um caractere especial (!@#$...).';
+        changePassError.classList.remove('hidden');
       }
+      if (inputNewPass) inputNewPass.focus();
       return;
     }
 
-    if (authMode === 'register' && !isValidPasswordRule(password)) {
-      if (authErrorMsg) {
-        authErrorMsg.textContent = 'A senha deve conter entre 8 e 50 caracteres e pelo menos um caractere especial (ex: !@#$%).';
-        authErrorMsg.classList.remove('hidden');
+    if (currentPassword === newPassword) {
+      if (changePassError) {
+        changePassError.textContent = 'A nova senha deve ser diferente da senha atual.';
+        changePassError.classList.remove('hidden');
       }
+      if (inputNewPass) inputNewPass.focus();
       return;
     }
 
-    btnSubmitAuth.disabled = true;
-    btnSubmitAuth.textContent = 'Processando...';
+    if (btnSaveChangePassword) {
+      btnSaveChangePassword.disabled = true;
+      btnSaveChangePassword.textContent = 'Gravando...';
+    }
 
     try {
       const res = await fetch('/api/auth', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentUser.token}`
+        },
         body: JSON.stringify({
-          action: authMode,
-          username,
-          password,
-          name: authMode === 'register' ? (name || username) : undefined
+          action: 'change_password',
+          currentPassword,
+          newPassword
         })
       });
 
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Erro na autenticação');
+        throw new Error(json.error || 'Falha ao alterar senha.');
       }
 
-      if (authMode === 'login') {
-        currentUser = { ...json.user, token: json.token };
-        localStorage.setItem('escala_current_user', JSON.stringify(currentUser));
-        updateAuthViewState();
-        closeAuthModal();
-        loadMonthFromCloud(state.year, state.month, state.sector);
-      } else {
-        alert('Operador cadastrado com sucesso!');
-        closeAuthModal();
+      currentUser = { ...json.user, token: json.token };
+      localStorage.setItem('escala_current_user', JSON.stringify(currentUser));
+
+      if (bannerMustChangePassword) {
+        bannerMustChangePassword.classList.add('hidden');
       }
+
+      if (changePassSuccess) {
+        changePassSuccess.textContent = 'Senha alterada com sucesso!';
+        changePassSuccess.classList.remove('hidden');
+      }
+
+      setTimeout(() => {
+        closeChangePasswordModal();
+      }, 1400);
+
     } catch (err) {
-      if (authErrorMsg) {
-        authErrorMsg.textContent = err.message;
-        authErrorMsg.classList.remove('hidden');
+      if (changePassError) {
+        changePassError.textContent = err.message || 'Erro ao atualizar senha.';
+        changePassError.classList.remove('hidden');
       }
     } finally {
-      btnSubmitAuth.disabled = false;
-      btnSubmitAuth.textContent = authMode === 'login' ? 'Entrar' : 'Cadastrar Operador';
+      if (btnSaveChangePassword) {
+        btnSaveChangePassword.disabled = false;
+        btnSaveChangePassword.textContent = 'Salvar Nova Senha';
+      }
     }
   }
+
+  window.openChangePasswordModal = openChangePasswordModal;
+  window.closeChangePasswordModal = closeChangePasswordModal;
+  window.handleSaveNewPassword = handleSaveNewPassword;
 
   // =========================================================================
   // EDIÇÃO DE IDENTIFICAÇÃO / POSTO / NOME DO USUÁRIO
@@ -2532,36 +2545,17 @@
       });
     };
     sanitizeUserField(loginInputUser);
-    sanitizeUserField(authUsername);
 
     if (formLoginScreen) {
       formLoginScreen.addEventListener('submit', handleLoginScreenSubmit);
     }
-    if (tabLoginSignin) {
-      tabLoginSignin.addEventListener('click', () => switchLoginScreenTab('login'));
-    }
-    if (tabLoginSignup) {
-      tabLoginSignup.addEventListener('click', () => switchLoginScreenTab('register'));
-    }
     if (btnAuthUser) {
       btnAuthUser.addEventListener('click', handleLogout);
     }
-    if (btnCloseAuth) {
-      btnCloseAuth.addEventListener('click', closeAuthModal);
-    }
-    if (tabLogin) {
-      tabLogin.addEventListener('click', () => switchAuthTab('login'));
-    }
-    if (tabRegister) {
-      tabRegister.addEventListener('click', () => switchAuthTab('register'));
-    }
-    if (formAuth) {
-      formAuth.addEventListener('submit', handleAuthSubmit);
-    }
-    if (modalAuth) {
-      modalAuth.addEventListener('click', (e) => {
-        if (e.target === modalAuth) {
-          closeAuthModal();
+    if (modalChangePassword) {
+      modalChangePassword.addEventListener('click', (e) => {
+        if (e.target === modalChangePassword) {
+          closeChangePasswordModal();
         }
       });
     }
@@ -2691,9 +2685,11 @@
   setupSystemThemeDetection();
   setupEventListeners();
   updateSaveButtonUI('clean');
-  renderAll();
   updateAuthViewState();
   if (currentUser) {
+    renderAll();
     loadMonthFromCloud(state.year, state.month, state.sector);
+  } else {
+    clearRenderedDom();
   }
 })();

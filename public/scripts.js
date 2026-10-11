@@ -102,8 +102,11 @@
 
   // Banner e Modal de Troca de Senha
   const bannerMustChangePassword = document.getElementById('banner-must-change-password');
+  const btnBannerChangePassword = document.getElementById('btn-banner-change-password');
   const modalChangePassword = document.getElementById('modal-change-password');
   const formChangePassword = document.getElementById('form-change-password');
+  const btnCloseChangePassword = document.getElementById('btn-close-change-password');
+  const btnCancelChangePassword = document.getElementById('btn-cancel-change-password');
   const inputCurrentPass = document.getElementById('input-current-pass');
   const inputNewPass = document.getElementById('input-new-pass');
   const inputConfirmPass = document.getElementById('input-confirm-pass');
@@ -1314,12 +1317,8 @@
       // Carrega dados da nuvem
       loadMonthFromCloud(state.year, state.month, state.sector);
 
-      // Se for primeiro acesso com senha inicial, abre automaticamente o modal de troca de senha
-      if (currentUser.must_change_password) {
-        setTimeout(() => {
-          openChangePasswordModal();
-        }, 600);
-      }
+      // O banner de aviso de primeiro acesso é exibido automaticamente no topo caso seja senha inicial,
+      // permitindo que o usuário visualize e utilize o sistema normalmente sem bloqueio rígido.
     } catch (err) {
       if (loginScreenError) {
         loginScreenError.textContent = err.message || 'Erro na autenticação';
@@ -1397,6 +1396,15 @@
       modalChangePassword.classList.add('hidden');
       modalChangePassword.style.display = 'none';
     }
+    if (changePassError) {
+      changePassError.classList.add('hidden');
+      changePassError.textContent = '';
+    }
+    if (changePassSuccess) {
+      changePassSuccess.classList.add('hidden');
+      changePassSuccess.textContent = '';
+    }
+    if (formChangePassword) formChangePassword.reset();
   }
 
   async function handleSaveNewPassword(e) {
@@ -2092,6 +2100,24 @@
         }
       }
 
+      // Se o modal de alteração de senha estiver visível
+      if (modalChangePassword && !modalChangePassword.classList.contains('hidden')) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          closeChangePasswordModal();
+          return;
+        }
+      }
+
+      // Se o modal de edição de usuário estiver visível
+      if (modalEditUser && !modalEditUser.classList.contains('hidden')) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          closeEditUserModal();
+          return;
+        }
+      }
+
       if (e.key === 'Escape' || e.key === 'Enter') {
         // Fecha popover de turno se estiver aberto
         if (shiftPopover.style.display !== 'none') {
@@ -2546,6 +2572,19 @@
     }
     if (btnAuthUser) {
       btnAuthUser.addEventListener('click', handleLogout);
+    }
+    // Banner de Aviso e Modal de Alteração de Senha do Operador
+    if (btnBannerChangePassword) {
+      btnBannerChangePassword.addEventListener('click', openChangePasswordModal);
+    }
+    if (btnCloseChangePassword) {
+      btnCloseChangePassword.addEventListener('click', closeChangePasswordModal);
+    }
+    if (btnCancelChangePassword) {
+      btnCancelChangePassword.addEventListener('click', closeChangePasswordModal);
+    }
+    if (formChangePassword) {
+      formChangePassword.addEventListener('submit', handleSaveNewPassword);
     }
     if (modalChangePassword) {
       modalChangePassword.addEventListener('click', (e) => {

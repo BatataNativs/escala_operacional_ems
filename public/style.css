@@ -2841,6 +2841,11 @@ body.dark-theme .extra-hours-table tbody tr:hover {
     font-size: 10px;
   }
 
+  .schedule-table .cell-weekday,
+  .schedule-table .cell-weekend {
+    font-size: 8px !important; /* ou o tamanho desejado para a tela na horizontal */
+  }
+
   .col-leg {
     width: 32px !important;
     min-width: 32px !important;
@@ -4031,21 +4036,35 @@ body.dark-theme .conflict-legal-note strong {
 }
 
 .first-access-btn {
-  background: #d97706;
+  --pulse-spread-color: rgba(217, 119, 6, 0.65);
+  --pulse-glow-color: rgba(217, 119, 6, 0.35);
+  background: #d94206;
   color: #ffffff;
   border: none;
   border-radius: var(--radius-sm);
-  padding: 6px 14px;
-  font-size: 0.8rem;
-  font-weight: 700;
+  padding: 8px 16px;
+  font-size: 0.92rem;
+  font-weight: 900;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  animation: pulseAlertSpread 0.5s infinite ease-in-out;
 }
 
 .first-access-btn:hover {
-  background: #b45309;
-  box-shadow: 0 2px 6px rgba(180, 83, 9, 0.35);
+  background: #973207;
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 4px 14px rgba(180, 83, 9, 0.45);
+  animation-play-state: paused;
+}
+
+.first-access-btn:active {
+  transform: scale(0.98);
 }
 
 body.dark-theme .first-access-banner {
@@ -4055,11 +4074,71 @@ body.dark-theme .first-access-banner {
 }
 
 body.dark-theme .first-access-btn {
+  --pulse-spread-color: rgba(234, 179, 8, 0.75);
+  --pulse-glow-color: rgba(250, 204, 21, 0.45);
   background: #eab308;
   color: #1c1917;
 }
 
 body.dark-theme .first-access-btn:hover {
   background: #facc15;
+  box-shadow: 0 4px 14px rgba(250, 204, 21, 0.55);
+  animation-play-state: paused;
+}
+
+/* Animação chamativa com spread expandido de alerta */
+@keyframes pulseAlertSpread {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 var(--pulse-spread-color), 0 2px 6px rgba(0, 0, 0, 0.15);
+  }
+  50% {
+    transform: scale(1.03);
+    box-shadow: 0 0 0 12px rgba(217, 119, 6, 0), 0 4px 14px var(--pulse-glow-color);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(217, 119, 6, 0), 0 2px 6px rgba(0, 0, 0, 0.15);
+  }
+}
+
+/* Responsividade Mobile para o Banner de Troca de Senha Inicial */
+@media screen and (max-width: 768px) {
+  .first-access-banner {
+    padding: 10px 14px;
+    overflow: hidden;
+  }
+
+  .first-access-banner-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .first-access-banner-text-group {
+    align-items: flex-start;
+    font-size: 0.82rem;
+    line-height: 1.4;
+  }
+
+  .first-access-btn {
+    width: 100%;
+    padding: 10px 16px;
+    font-size: 0.85rem;
+    min-height: 40px;
+    animation-name: pulseAlertSpreadMobile;
+  }
+}
+
+@keyframes pulseAlertSpreadMobile {
+  0% {
+    box-shadow: 0 0 0 0 var(--pulse-spread-color), 0 2px 6px rgba(0, 0, 0, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(217, 119, 6, 0), 0 4px 12px var(--pulse-glow-color);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(217, 119, 6, 0), 0 2px 6px rgba(0, 0, 0, 0.15);
+  }
 }
 

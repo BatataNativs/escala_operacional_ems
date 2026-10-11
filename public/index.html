@@ -188,19 +188,27 @@
         </button>
 
         <div class="user-auth-group no-print">
-          <button type="button" id="btn-edit-user-name" class="btn btn-secondary btn-user-edit" onclick="openEditUserModal(event)" title="Editar seu Nome, Posto ou Graduação">
+          <button type="button" id="btn-edit-user-name" class="btn btn-secondary btn-user-edit" title="Editar seu Nome, Posto ou Graduação">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 20h9"></path>
               <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
             </svg>
             <span id="user-display-name">Operador</span>
           </button>
-          <button type="button" id="btn-open-change-password" class="btn btn-secondary btn-user-edit" onclick="openChangePasswordModal(event)" title="Alterar sua senha de acesso">
+          <button type="button" id="btn-open-change-password" class="btn btn-secondary btn-user-edit" title="Alterar sua senha de acesso">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
               <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
             </svg>
             <span>Senha</span>
+          </button>
+          <button type="button" id="btn-admin-reset-users" class="btn btn-secondary btn-user-edit hidden" title="Administrador: Resetar Senhas de Operadores">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="8.5" cy="7" r="4"></circle>
+              <polyline points="17 11 19 13 23 9"></polyline>
+            </svg>
+            <span>Resetar Senhas</span>
           </button>
           <button type="button" id="btn-auth-user" class="btn btn-secondary btn-user-auth" title="Sair da conta">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -250,6 +258,7 @@
           </svg>
         </button>
         <div id="dropdown-menu" class="dropdown-content">
+          <a href="#" id="action-admin-reset-users" class="hidden">🔑 Resetar Senha de Operadores</a>
           <a href="#" id="action-export-json">Exportar Backup (JSON)</a>
           <a href="#" id="action-import-json">Importar Escala (JSON)</a>
           <input type="file" id="file-input-json" accept=".json" style="display:none">
@@ -524,9 +533,52 @@
   </div>
   <!-- Fim de #modal-conflict-warning -->
 
+  <!-- Modal do Administrador para Reset de Senha de Operador -->
+  <div id="modal-admin-reset-password" class="modal-overlay hidden">
+    <div class="modal-content modal-edit-user-content">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3 class="modal-title">Resetar Senha de Operador</h3>
+          <span class="modal-subtitle">Painel Exclusivo do Administrador</span>
+        </div>
+        <button type="button" id="btn-close-admin-reset" class="modal-close" title="Fechar">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-admin-reset-password">
+          <div class="form-group">
+            <label for="select-admin-target-user">Selecione o Operador:</label>
+            <select id="select-admin-target-user" class="input-form" required style="cursor: pointer;">
+              <option value="">Carregando operadores...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="input-admin-temp-password">Nova Senha Provisória / Inicial:</label>
+            <div style="position: relative; display: flex; align-items: center;">
+              <input type="text" id="input-admin-temp-password" class="input-form" value="Mudar@123" required maxlength="50" style="padding-right: 36px; font-family: monospace;">
+              <button type="button" id="btn-gen-temp-password" class="btn btn-icon" title="Gerar senha aleatória" style="position: absolute; right: 4px; padding: 4px; border: none; background: transparent; cursor: pointer;">
+                🔄
+              </button>
+            </div>
+            <span class="password-rule-hint">Padrão sugerido: <code>Mudar@123</code> (pode digitar outra). Mínimo 8 caracteres e um caractere especial (!@#$...).</span>
+          </div>
+          <div style="background: rgba(234, 88, 12, 0.08); border-left: 3px solid #ea580c; padding: 10px 12px; border-radius: 4px; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.4; margin-bottom: 12px;">
+            ⚠️ Ao confirmar o reset, a senha deste operador será imediatamente alterada para a senha provisória acima e o sistema exigirá que ele defina uma nova senha pessoal no próximo login.
+          </div>
+          <div id="admin-reset-error" class="auth-error hidden"></div>
+          <div id="admin-reset-success" class="auth-success hidden" style="color: var(--color-success, #10b981); font-weight: 600; margin-top: 8px; font-size: 0.88rem;"></div>
+          <div class="auth-actions" style="margin-top: 16px; display: flex; gap: 10px; justify-content: flex-end;">
+            <button type="button" id="btn-cancel-admin-reset" class="btn btn-secondary">Cancelar</button>
+            <button type="submit" id="btn-submit-admin-reset" class="btn btn-primary" style="background: #ea580c;">Confirmar Reset</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <!-- Fim de #modal-admin-reset-password -->
+
   </div>
   <!-- Fim de #app-screen -->
 
-  <script src="scripts.js?v=20261011_1546"></script>
+  <script src="scripts.js?v=20261011_1725"></script>
 </body>
 </html>

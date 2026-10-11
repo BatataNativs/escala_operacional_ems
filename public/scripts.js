@@ -103,6 +103,7 @@
   // Banner e Modal de Troca de Senha
   const bannerMustChangePassword = document.getElementById('banner-must-change-password');
   const btnBannerChangePassword = document.getElementById('btn-banner-change-password');
+  const btnOpenChangePassword = document.getElementById('btn-open-change-password');
   const modalChangePassword = document.getElementById('modal-change-password');
   const formChangePassword = document.getElementById('form-change-password');
   const btnCloseChangePassword = document.getElementById('btn-close-change-password');
@@ -113,6 +114,20 @@
   const changePassError = document.getElementById('change-pass-error');
   const changePassSuccess = document.getElementById('change-pass-success');
   const btnSaveChangePassword = document.getElementById('btn-save-change-password');
+
+  // Painel do Administrador: Reset de Senha de Operadores
+  const btnAdminResetUsers = document.getElementById('btn-admin-reset-users');
+  const actionAdminResetUsers = document.getElementById('action-admin-reset-users');
+  const modalAdminReset = document.getElementById('modal-admin-reset-password');
+  const formAdminReset = document.getElementById('form-admin-reset-password');
+  const btnCloseAdminReset = document.getElementById('btn-close-admin-reset');
+  const btnCancelAdminReset = document.getElementById('btn-cancel-admin-reset');
+  const selectAdminTargetUser = document.getElementById('select-admin-target-user');
+  const inputAdminTempPass = document.getElementById('input-admin-temp-password');
+  const btnGenTempPass = document.getElementById('btn-gen-temp-password');
+  const adminResetError = document.getElementById('admin-reset-error');
+  const adminResetSuccess = document.getElementById('admin-reset-success');
+  const btnSubmitAdminReset = document.getElementById('btn-submit-admin-reset');
 
   // Modal de Conflito de Escala (ICA 63-33)
   const modalConflictWarning = document.getElementById('modal-conflict-warning');
@@ -1249,12 +1264,35 @@
           bannerMustChangePassword.classList.add('hidden');
         }
       }
+
+      // Painel do Administrador (disponível para natividadedan e role 'admin')
+      const isAdmin = Boolean(currentUser.role === 'admin' || currentUser.username === 'natividadedan');
+      if (btnAdminResetUsers) {
+        if (isAdmin) {
+          btnAdminResetUsers.classList.remove('hidden');
+        } else {
+          btnAdminResetUsers.classList.add('hidden');
+        }
+      }
+      if (actionAdminResetUsers) {
+        if (isAdmin) {
+          actionAdminResetUsers.classList.remove('hidden');
+        } else {
+          actionAdminResetUsers.classList.add('hidden');
+        }
+      }
     } else {
       // Não autenticado: exibe tela de login e oculta aplicação
       loginScreen.style.display = 'flex';
       appScreen.style.display = 'none';
       if (bannerMustChangePassword) {
         bannerMustChangePassword.classList.add('hidden');
+      }
+      if (btnAdminResetUsers) {
+        btnAdminResetUsers.classList.add('hidden');
+      }
+      if (actionAdminResetUsers) {
+        actionAdminResetUsers.classList.add('hidden');
       }
       if (loginScreenError) {
         loginScreenError.classList.add('hidden');
@@ -1518,6 +1556,198 @@
   window.openChangePasswordModal = openChangePasswordModal;
   window.closeChangePasswordModal = closeChangePasswordModal;
   window.handleSaveNewPassword = handleSaveNewPassword;
+
+  // =========================================================================
+  // PAINEL DO ADMINISTRADOR: RESET DE SENHA DE OPERADORES
+  // =========================================================================
+  function generateRandomPassword() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+    const specials = '!@#$%&*';
+    let pass = '';
+    for (let i = 0; i < 7; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    pass += specials.charAt(Math.floor(Math.random() * specials.length));
+    pass += Math.floor(Math.random() * 9) + 1;
+    return pass;
+  }
+
+  async function openAdminResetModal(e) {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    if (!modalAdminReset) return;
+
+    if (adminResetError) {
+      adminResetError.classList.add('hidden');
+      adminResetError.textContent = '';
+    }
+    if (adminResetSuccess) {
+      adminResetSuccess.classList.add('hidden');
+      adminResetSuccess.textContent = '';
+    }
+    if (inputAdminTempPass) {
+      inputAdminTempPass.value = 'Mudar@123';
+    }
+
+    modalAdminReset.classList.remove('hidden');
+    modalAdminReset.style.display = 'flex';
+
+    if (selectAdminTargetUser) {
+      selectAdminTargetUser.innerHTML = '<option value="">Carregando operadores...</option>';
+      selectAdminTargetUser.disabled = true;
+    }
+
+    try {
+      if (!currentUser || !currentUser.token) {
+        throw new Error('Sessão expirada. Faça login novamente.');
+      }
+
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentUser.token}`
+        },
+        body: JSON.stringify({ action: 'admin_list_users' })
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Erro ao consultar lista de operadores.');
+      }
+
+      if (selectAdminTargetUser) {
+        selectAdminTargetUser.innerHTML = '<option value="">-- Selecione o Operador --</option>';
+        const users = json.users || [];
+        users.forEach(u => {
+          const opt = document.createElement('option');
+          opt.value = u.username;
+          const status = u.must_change_password ? ' [Senha inicial]' : '';
+          opt.textContent = `${u.name || u.username} (${u.username})${status}`;
+          selectAdminTargetUser.appendChild(opt);
+        });
+        selectAdminTargetUser.disabled = false;
+        selectAdminTargetUser.focus();
+      }
+    } catch (err) {
+      if (adminResetError) {
+        adminResetError.textContent = err.message || 'Erro ao carregar operadores.';
+        adminResetError.classList.remove('hidden');
+      }
+      if (selectAdminTargetUser) {
+        selectAdminTargetUser.innerHTML = '<option value="">Falha ao carregar lista</option>';
+        selectAdminTargetUser.disabled = false;
+      }
+    }
+  }
+
+  function closeAdminResetModal(e) {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    if (modalAdminReset) {
+      modalAdminReset.classList.add('hidden');
+      modalAdminReset.style.display = 'none';
+    }
+    if (adminResetError) {
+      adminResetError.classList.add('hidden');
+      adminResetError.textContent = '';
+    }
+    if (adminResetSuccess) {
+      adminResetSuccess.classList.add('hidden');
+      adminResetSuccess.textContent = '';
+    }
+    if (formAdminReset) formAdminReset.reset();
+  }
+
+  async function handleAdminResetSubmit(e) {
+    e.preventDefault();
+    if (!currentUser || !currentUser.token) {
+      handleSessionExpired();
+      return;
+    }
+
+    const targetUsername = selectAdminTargetUser ? selectAdminTargetUser.value : '';
+    const temporaryPassword = inputAdminTempPass ? inputAdminTempPass.value.trim() : 'Mudar@123';
+
+    if (adminResetError) {
+      adminResetError.classList.add('hidden');
+      adminResetError.textContent = '';
+    }
+    if (adminResetSuccess) {
+      adminResetSuccess.classList.add('hidden');
+      adminResetSuccess.textContent = '';
+    }
+
+    if (!targetUsername) {
+      if (adminResetError) {
+        adminResetError.textContent = 'Selecione o operador que terá a senha resetada.';
+        adminResetError.classList.remove('hidden');
+      }
+      return;
+    }
+
+    if (!isValidPasswordRule(temporaryPassword)) {
+      if (adminResetError) {
+        adminResetError.textContent = 'A senha provisória deve ter entre 8 e 50 caracteres e pelo menos um caractere especial (!@#$...).';
+        adminResetError.classList.remove('hidden');
+      }
+      return;
+    }
+
+    const selText = selectAdminTargetUser && selectAdminTargetUser.selectedOptions[0] ? selectAdminTargetUser.selectedOptions[0].textContent : targetUsername;
+    if (!confirm(`Deseja realmente resetar a senha de ${selText} para "${temporaryPassword}"?`)) {
+      return;
+    }
+
+    if (btnSubmitAdminReset) {
+      btnSubmitAdminReset.disabled = true;
+      btnSubmitAdminReset.textContent = 'Resetando...';
+    }
+
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${currentUser.token}`
+        },
+        body: JSON.stringify({
+          action: 'admin_reset_user_password',
+          targetUsername,
+          temporaryPassword
+        })
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Falha ao resetar senha do operador.');
+      }
+
+      if (adminResetSuccess) {
+        adminResetSuccess.textContent = `Sucesso! A senha de ${json.operatorName || targetUsername} foi redefinida para "${temporaryPassword}". No próximo acesso dele, o sistema solicitará o cadastro de uma nova senha pessoal.`;
+        adminResetSuccess.classList.remove('hidden');
+      }
+
+      if (selectAdminTargetUser && selectAdminTargetUser.selectedOptions[0]) {
+        const opt = selectAdminTargetUser.selectedOptions[0];
+        if (!opt.textContent.includes('[Senha inicial]')) {
+          opt.textContent += ' [Senha inicial]';
+        }
+      }
+
+    } catch (err) {
+      if (adminResetError) {
+        adminResetError.textContent = err.message || 'Erro ao processar reset de senha.';
+        adminResetError.classList.remove('hidden');
+      }
+    } finally {
+      if (btnSubmitAdminReset) {
+        btnSubmitAdminReset.disabled = false;
+        btnSubmitAdminReset.textContent = 'Confirmar Reset';
+      }
+    }
+  }
+
+  window.openAdminResetModal = openAdminResetModal;
+  window.closeAdminResetModal = closeAdminResetModal;
 
   // =========================================================================
   // EDIÇÃO DE IDENTIFICAÇÃO / POSTO / NOME DO USUÁRIO
@@ -2118,6 +2348,15 @@
         }
       }
 
+      // Se o modal de administração de reset de senha estiver visível
+      if (modalAdminReset && !modalAdminReset.classList.contains('hidden')) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          closeAdminResetModal();
+          return;
+        }
+      }
+
       if (e.key === 'Escape' || e.key === 'Enter') {
         // Fecha popover de turno se estiver aberto
         if (shiftPopover.style.display !== 'none') {
@@ -2574,6 +2813,9 @@
       btnAuthUser.addEventListener('click', handleLogout);
     }
     // Banner de Aviso e Modal de Alteração de Senha do Operador
+    if (btnOpenChangePassword) {
+      btnOpenChangePassword.addEventListener('click', openChangePasswordModal);
+    }
     if (btnBannerChangePassword) {
       btnBannerChangePassword.addEventListener('click', openChangePasswordModal);
     }
@@ -2590,6 +2832,41 @@
       modalChangePassword.addEventListener('click', (e) => {
         if (e.target === modalChangePassword) {
           closeChangePasswordModal();
+        }
+      });
+    }
+
+    // Painel do Administrador: Reset de Senha de Operadores
+    if (btnAdminResetUsers) {
+      btnAdminResetUsers.addEventListener('click', openAdminResetModal);
+    }
+    if (actionAdminResetUsers) {
+      actionAdminResetUsers.addEventListener('click', (e) => {
+        e.preventDefault();
+        dropdownMenu.classList.remove('show');
+        openAdminResetModal();
+      });
+    }
+    if (btnCloseAdminReset) {
+      btnCloseAdminReset.addEventListener('click', closeAdminResetModal);
+    }
+    if (btnCancelAdminReset) {
+      btnCancelAdminReset.addEventListener('click', closeAdminResetModal);
+    }
+    if (btnGenTempPass) {
+      btnGenTempPass.addEventListener('click', () => {
+        if (inputAdminTempPass) {
+          inputAdminTempPass.value = generateRandomPassword();
+        }
+      });
+    }
+    if (formAdminReset) {
+      formAdminReset.addEventListener('submit', handleAdminResetSubmit);
+    }
+    if (modalAdminReset) {
+      modalAdminReset.addEventListener('click', (e) => {
+        if (e.target === modalAdminReset) {
+          closeAdminResetModal();
         }
       });
     }

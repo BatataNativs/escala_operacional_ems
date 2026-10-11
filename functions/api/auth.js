@@ -278,6 +278,14 @@ export async function onRequestPost(context) {
 
       resetAttempts(clientIp);
 
+      // Garante promoção do administrador oficial 'natividadedan'
+      if (user.username === 'natividadedan' && user.role !== 'admin') {
+        try {
+          await db.prepare("UPDATE users SET role = 'admin' WHERE id = ?").bind(user.id).run();
+          user.role = 'admin';
+        } catch (_) {}
+      }
+
       const mustChange = user.must_change_password === 1;
       const safeUser = {
         id: user.id,
@@ -453,6 +461,121 @@ export async function onRequestPost(context) {
         message: 'Nome atualizado com sucesso!',
         token: newToken,
         user: updatedUser
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+    } else if (action === 'admin_list_users') {
+      const token = extractBearerToken(request);
+      if (!token) {
+        return new Response(JSON.stringify({ success: false, error: 'Sessão não autenticada' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      const session = await verifySessionToken(token, authSecret);
+      if (!session) {
+        return new Response(JSON.stringify({ success: false, error: 'Sessão inválida ou expirada' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const isAdmin = session.role === 'admin' || session.username === 'natividadedan';
+      if (!isAdmin) {
+        return new Response(JSON.stringify({ success: false, error: 'Acesso restrito ao administrador' }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const usersResult = await db
+        .prepare('SELECT id, username, name, role, must_change_password, created_at FROM users ORDER BY name ASC')
+        .all();
+
+      return new Response(JSON.stringify({
+        success: true,
+        users: usersResult.results || []
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+    } else if (action === 'admin_reset_user_password') {
+      const token = extractBearerToken(request);
+      if (!token) {
+        return new Response(JSON.stringify({ success: false, error: 'Sessão não autenticada' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      const session = await verifySessionToken(token, authSecret);
+      if (!session) {
+        return new Response(JSON.stringify({ success: false, error: 'Sessão inválida ou expirada' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const isAdmin = session.role === 'admin' || session.username === 'natividadedan';
+      if (!isAdmin) {
+        return new Response(JSON.stringify({ success: false, error: 'Acesso restrito ao administrador' }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const { targetUsername, temporaryPassword } = body;
+      const cleanTargetUser = sanitizeUsername(targetUsername);
+      if (!cleanTargetUser) {
+        return new Response(JSON.stringify({ success: false, error: 'Selecione o operador' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const target = await db
+        .prepare('SELECT id, username, name FROM users WHERE username = ?')
+        .bind(cleanTargetUser)
+        .first();
+
+      if (!target) {
+        return new Response(JSON.stringify({ success: false, error: 'Operador não encontrado' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      let newPass = (typeof temporaryPassword === 'string' && temporaryPassword.trim()) ? temporaryPassword.trim() : 'Mudar@123';
+      const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(newPass);
+      if (newPass.length < 8 || newPass.length > 50 || !hasSpecial) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'A senha provisória deve ter entre 8 e 50 caracteres e pelo menos um caractere especial (!@#$...).'
+        }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const newHash = await hashPassword(newPass);
+      try {
+        await db
+          .prepare('UPDATE users SET password_hash = ?, must_change_password = 1 WHERE username = ?')
+          .bind(newHash, cleanTargetUser)
+          .run();
+      } catch (colErr) {
+        await db
+          .prepare('UPDATE users SET password_hash = ? WHERE username = ?')
+          .bind(newHash, cleanTargetUser)
+          .run();
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        message: `Senha do operador ${target.name || target.username} resetada com sucesso!`,
+        tempPassword: newPass,
+        operatorName: target.name || target.username,
+        operatorUsername: target.username
       }), {
         headers: { 'Content-Type': 'application/json' }
       });

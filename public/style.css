@@ -9,7 +9,7 @@
   --color-unit: #1e293b;
   --color-weekday: #334155;
   --color-weekend: #4338ca;
-  --color-holiday: #991b1b;
+  --color-holiday: #e61111;
   --color-col-header: #1e293b;
   --color-days-header: #2563eb;
   --color-operator-row: #ffffff; /* Creme suave de alta legibilidade, sem cansar a vista */
@@ -76,7 +76,7 @@ body.dark-theme {
   --color-unit: #0f172a;
   --color-weekday: #1e293b;
   --color-weekend: #3730a3;
-  --color-holiday: #991b1b;
+  --color-holiday: #e61111;
   --color-col-header: #0f172a;
   --color-days-header: #1d4ed8;
   --color-operator-row: #e0e6ee; /* Superfície slate escura elegante, sem ofuscar */
@@ -589,6 +589,41 @@ body.dark-theme .stepper-arrow:hover {
 .chip-m { background: var(--color-shift-m-bg); color: var(--color-shift-m-text); border-color: var(--color-shift-m-border); }
 .chip-t { background: var(--color-shift-t-bg); color: var(--color-shift-t-text); border-color: var(--color-shift-t-border); }
 .chip-r { background: var(--color-shift-r-bg); color: var(--color-shift-r-text); border-color: var(--color-shift-r-border); }
+.chip-btn-paint {
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  font-family: inherit;
+}
+.chip-btn-paint:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.12);
+}
+.chip-btn-paint:active {
+  transform: translateY(0);
+}
+.chip-btn-paint.chip-paint-active {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3), 0 2px 6px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+  position: relative;
+}
+.chip-btn-paint.chip-paint-active::after {
+  content: '🖌️ Modo Rápido';
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  margin-left: 6px;
+  background: var(--primary);
+  color: #ffffff;
+  padding: 1px 5px;
+  border-radius: 3px;
+  display: inline-block;
+  line-height: 1.2;
+}
+
 .chip-holiday {
   background: var(--color-holiday);
   color: #ffffff;
@@ -4381,3 +4416,145 @@ body.dark-theme .holiday-badge-type {
   }
 
 
+
+/* =================================================
+   Barra de Modo Edição Rápida (Pintura de Turnos)
+   ================================================= */
+.paint-mode-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  margin-bottom: 10px;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border: 1.5px solid #93c5fd;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+  animation: slideDownPaint 0.18s ease-out;
+}
+
+body.dark-theme .paint-mode-bar {
+  background: linear-gradient(135deg, #1e293b 0%, #172554 100%);
+  border-color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+@keyframes slideDownPaint {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.paint-mode-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.paint-mode-icon {
+  font-size: 16px;
+  animation: paintWiggle 1.6s infinite ease-in-out;
+}
+
+@keyframes paintWiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-12deg); }
+  75% { transform: rotate(12deg); }
+}
+
+.paint-mode-title {
+  font-weight: 700;
+  font-size: 13px;
+  color: #1e3a8a;
+}
+
+body.dark-theme .paint-mode-title {
+  color: #93c5fd;
+}
+
+.paint-mode-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 800;
+  font-size: 11.5px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  display: inline-flex;
+  align-items: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.paint-mode-badge.badge-paint-m {
+  background: var(--color-shift-m-bg);
+  color: var(--color-shift-m-text);
+  border-color: var(--color-shift-m-border);
+}
+
+.paint-mode-badge.badge-paint-t {
+  background: var(--color-shift-t-bg);
+  color: var(--color-shift-t-text);
+  border-color: var(--color-shift-t-border);
+}
+
+.paint-mode-badge.badge-paint-r {
+  background: var(--color-shift-r-bg);
+  color: var(--color-shift-r-text);
+  border-color: var(--color-shift-r-border);
+}
+
+.paint-mode-hint {
+  font-size: 12px;
+  color: #475569;
+}
+
+body.dark-theme .paint-mode-hint {
+  color: #cbd5e1;
+}
+
+.btn-exit-paint-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1.5px solid #f87171;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-exit-paint-mode:hover {
+  background: #dc2626;
+  color: #ffffff;
+  border-color: #b91c1c;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.3);
+}
+
+.btn-exit-paint-mode .exit-x-symbol {
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+/* Indicador no grid quando modo de pintura estiver ativo */
+.sheet-container.paint-active .schedule-table .cell-shift {
+  cursor: crosshair !important;
+}
+
+.sheet-container.paint-active .schedule-table .cell-shift:hover {
+  outline: 2px dashed #2563eb !important;
+  outline-offset: -2px;
+  filter: brightness(1.05);
+}

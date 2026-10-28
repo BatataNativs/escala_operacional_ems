@@ -80,6 +80,14 @@
   const btnSaveExtraHours = document.getElementById('btn-save-extra-hours');
   const extraHoursTbody = document.getElementById('extra-hours-tbody');
 
+  // Modo Edição Rápida (Pintura de Turnos)
+  let activePaintTool = null; // 'M', 'T', 'R' ou null
+  const paintModeBar = document.getElementById('paint-mode-bar');
+  const paintModeBadge = document.getElementById('paint-mode-badge');
+  const btnExitPaintMode = document.getElementById('btn-exit-paint-mode');
+  const sheetContainer = document.getElementById('sheet-container');
+  const chipPaintButtons = document.querySelectorAll('.chip-btn-paint');
+
   // Gestão de Feriados e Dias Não Úteis
   const chipHolidayLegend = document.getElementById('chip-holiday-legend');
   const badgeHolidayCount = document.getElementById('badge-holiday-count');
@@ -430,15 +438,36 @@
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data) {
-          state = json.data;
           const key = getMonthStorageKey(year, month, sector);
-          localStorage.setItem(key, JSON.stringify(state));
-          baselineSavedJson = JSON.stringify(state);
-          unsavedHistory = [];
-          hasUnsavedChanges = false;
-          updateSaveButtonUI('clean');
-          updateUndoButtonUI();
-          triggerSaveIndicator('☁️ Nuvem sincronizada', 'cloud-synced');
+          const localSaved = localStorage.getItem(key);
+          let localState = null;
+          if (localSaved) {
+            try { localState = JSON.parse(localSaved); } catch (e) {}
+          }
+
+          // Verifica se a nuvem retornou turnos vazios, mas o navegador já possuía turnos salvos localmente
+          const cloudHasShifts = json.data.operators && json.data.operators.some(op => op.shifts && Object.keys(op.shifts).length > 0);
+          const localHasShifts = localState && localState.operators && localState.operators.some(op => op.shifts && Object.keys(op.shifts).length > 0);
+
+          if (!cloudHasShifts && localHasShifts) {
+            // Preserva os dados locais preenchidos para não apagar a escala do usuário
+            state = localState;
+            hasUnsavedChanges = true;
+            updateSaveButtonUI('pending');
+            triggerSaveIndicator('Recuperado do cache local', 'cloud-syncing');
+          } else {
+            state = json.data;
+            localStorage.setItem(key, JSON.stringify(state));
+            baselineSavedJson = JSON.stringify(state);
+            unsavedHistory = [];
+            hasUnsavedChanges = false;
+            updateSaveButtonUI('clean');
+            updateUndoButtonUI();
+            triggerSaveIndicator('☁️ Nuvem sincronizada', 'cloud-synced');
+          }
+
+          state.lastChangeText = null;
+          renderLastChange();
           renderAll();
           return;
         }
@@ -513,7 +542,7 @@
   function renderLastChange() {
     if (!lastChangeDisplay) return;
     const key = `escala_last_change_${state.sector || 'EMS-SP'}_${state.year}_${state.month}`;
-    const text = state.lastChangeText || localStorage.getItem(key) || localStorage.getItem('escala_last_change_recent') || '';
+    const text = state.lastChangeText || localStorage.getItem(key) || '';
     if (text) {
       lastChangeDisplay.textContent = text;
       lastChangeDisplay.style.display = 'inline-flex';
@@ -714,11 +743,12 @@
     }
 
     // Linha 1: Mês, Unidade e Dias da Semana (QUI, SEX, SÁB, DOM...)
+    // Feriados mantêm as cores originais da semana (cell-weekend ou cell-weekday)
     let tr1 = `<tr>
       <th class="cell-month col-leg">${monthShort}</th>
       <th class="cell-unit col-name" contenteditable="${currentMode === 'edit'}" data-action="edit-sector" spellcheck="false" title="Clique para editar Unidade/Setor">${escapeHtml(state.sector || 'EMS-SP')}</th>`;
     daysInfo.forEach(d => {
-      const cls = d.isWeekend ? 'cell-weekend' : (d.isHoliday ? 'cell-holiday' : 'cell-weekday');
+      const cls = d.isWeekend ? 'cell-weekend' : 'cell-weekday';
       const todayClass = (isCurrentYearMonth && d.dayNumber === currentDay) ? ' col-today' : '';
       const holidayTitle = d.isHoliday ? ` title="${escapeHtml(d.holidayName)} (${d.holidayType}) - Não útil"` : '';
       tr1 += `<th class="${cls} col-day${todayClass}"${holidayTitle}>${d.dayOfWeekName}</th>`;
@@ -726,6 +756,7 @@
     tr1 += `</tr>`;
 
     // Linha 2: Leg., Operadores, 1 a 31
+    // Apenas o número do dia fica em vermelho no feriado, sem a estrelinha
     let tr2 = `<tr>
       <th class="cell-hdr-leg col-leg">Leg.</th>
       <th class="cell-hdr-op col-name">Operadores</th>`;
@@ -734,8 +765,7 @@
       const weekendClass = d.isWeekend ? ' col-weekend' : '';
       const holidayClass = d.isHoliday ? ' col-holiday' : '';
       const holidayTitle = d.isHoliday ? ` title="Feriado: ${escapeHtml(d.holidayName)} (${d.holidayType}) - Dia não útil"` : '';
-      const holidayStar = d.isHoliday ? `<span class="hdr-holiday-indicator">★</span>` : '';
-      tr2 += `<th class="cell-day-num col-day${weekendClass}${holidayClass}${todayClass}"${holidayTitle}>${d.dayNumber}${holidayStar}</th>`;
+      tr2 += `<th class="cell-day-num col-day${weekendClass}${holidayClass}${todayClass}"${holidayTitle}>${d.dayNumber}</th>`;
     });
     tr2 += `</tr>`;
 
@@ -2320,6 +2350,72 @@ function openExtraHoursModal() {
     renderStatsTable();
   }
 
+  // Controladores de Modo Edição Rápida (Pintura de Turnos)
+  function setPaintMode(shift) {
+    if (currentMode !== 'edit') {
+      currentMode = 'edit';
+      if (btnModeEdit) btnModeEdit.classList.add('active');
+      if (btnModeView) btnModeView.classList.remove('active');
+      document.body.classList.remove('mode-view');
+      renderAll();
+    }
+
+    // Se clicar no botão que já está ativo, desativa o modo pintura (toggle)
+    if (activePaintTool === shift) {
+      exitPaintMode();
+      return;
+    }
+
+    activePaintTool = shift;
+    closeShiftPopover();
+
+    // Destaque visual nos chips de turno
+    chipPaintButtons.forEach(btn => {
+      const p = btn.getAttribute('data-paint');
+      if (p === shift) {
+        btn.classList.add('chip-paint-active');
+      } else {
+        btn.classList.remove('chip-paint-active');
+      }
+    });
+
+    // Atualiza a barra de aviso de Edição Rápida
+    if (paintModeBar && paintModeBadge) {
+      paintModeBar.style.display = 'flex';
+      paintModeBadge.className = 'paint-mode-badge';
+      if (shift === 'M') {
+        paintModeBadge.classList.add('badge-paint-m');
+        paintModeBadge.textContent = 'M (Manhã | 06h00 às 13h30)';
+      } else if (shift === 'T') {
+        paintModeBadge.classList.add('badge-paint-t');
+        paintModeBadge.textContent = 'T (Tarde | 13h30 às 23h00)';
+      } else if (shift === 'R') {
+        paintModeBadge.classList.add('badge-paint-r');
+        paintModeBadge.textContent = 'R (RISAER | 24 Horas)';
+      }
+    }
+
+    if (sheetContainer) {
+      sheetContainer.classList.add('paint-active');
+    }
+  }
+
+  function exitPaintMode() {
+    activePaintTool = null;
+
+    chipPaintButtons.forEach(btn => {
+      btn.classList.remove('chip-paint-active');
+    });
+
+    if (paintModeBar) {
+      paintModeBar.style.display = 'none';
+    }
+
+    if (sheetContainer) {
+      sheetContainer.classList.remove('paint-active');
+    }
+  }
+
   function openShiftPopover(cell) {
     if (currentMode !== 'edit') return;
     if (shiftPopover.style.display !== 'none' && activeCell === cell) {
@@ -2565,6 +2661,7 @@ function openExtraHoursModal() {
 
     btnModeView.addEventListener('click', () => {
       currentMode = 'view';
+      exitPaintMode();
       btnModeView.classList.add('active');
       btnModeEdit.classList.remove('active');
       document.body.classList.add('mode-view');
@@ -2670,6 +2767,12 @@ function openExtraHoursModal() {
           e.preventDefault();
           closeAdminResetModal();
           return;
+        }
+      }
+
+      if (e.key === 'Escape') {
+        if (activePaintTool) {
+          exitPaintMode();
         }
       }
 
@@ -2955,8 +3058,16 @@ function openExtraHoursModal() {
       const cell = e.target.closest('.cell-shift');
       if (cell) {
         if (currentMode === 'edit') {
-          cell.focus();
-          openShiftPopover(cell);
+          if (activePaintTool) {
+            // Modo Pintura / Edição Rápida ativo: aplica o turno diretamente com suporte a Desfazer
+            const opId = cell.getAttribute('data-op-id');
+            const day = parseInt(cell.getAttribute('data-day'), 10);
+            updateCellShift(opId, day, activePaintTool);
+          } else {
+            // Modo normal: abre o popover de seleção de turno (M | T | R | Limpar)
+            cell.focus();
+            openShiftPopover(cell);
+          }
         }
       }
     });
@@ -3087,7 +3198,24 @@ function openExtraHoursModal() {
       }
     });
 
-        // 12. Gestão de Feriados e Dias Não Úteis
+        // 11.5 Eventos do Modo Edição Rápida (Pintura de Turnos)
+    chipPaintButtons.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const paintVal = btn.getAttribute('data-paint');
+        if (paintVal) {
+          setPaintMode(paintVal);
+        }
+      });
+    });
+
+    if (btnExitPaintMode) {
+      btnExitPaintMode.addEventListener('click', () => {
+        exitPaintMode();
+      });
+    }
+
+    // 12. Gestão de Feriados e Dias Não Úteis
     if (chipHolidayLegend) {
       chipHolidayLegend.addEventListener('click', openHolidaysModal);
     }

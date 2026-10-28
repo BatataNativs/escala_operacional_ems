@@ -242,9 +242,9 @@
   <section class="quick-bar no-print">
     <div class="legend-chips">
       <span class="legend-label">Legenda de Turnos:</span>
-      <span class="chip chip-m" title="Manhã"><strong>M</strong> (Manhã | 06h00 às 13h30)</span>
-      <span class="chip chip-t" title="Tarde"><strong>T</strong> (Tarde | 13h30 às 23h00)</span>
-      <span class="chip chip-r" title="RISAER | 24 Horas"><strong>R</strong> (RISAER | 24 horas)</span>
+      <button type="button" class="chip chip-m chip-btn-paint" data-paint="M" title="Clique para ativar Edição Rápida: Turno Manhã (M)"><strong>M</strong> (Manhã | 06h00 às 13h30)</button>
+      <button type="button" class="chip chip-t chip-btn-paint" data-paint="T" title="Clique para ativar Edição Rápida: Turno Tarde (T)"><strong>T</strong> (Tarde | 13h30 às 23h00)</button>
+      <button type="button" class="chip chip-r chip-btn-paint" data-paint="R" title="Clique para ativar Edição Rápida: Turno RISAER (R)"><strong>R</strong> (RISAER | 24 horas)</button>
       <button type="button" class="chip chip-holiday" id="chip-holiday-legend" title="Visualizar e gerenciar feriados e dias não úteis deste mês">
         <span class="chip-star">★</span> <strong>Feriados: <span id="badge-holiday-count">0</span></strong> (Não útil | Etapa cheia)
       </button>
@@ -313,6 +313,20 @@
           <span id="save-status-subtext" class="save-status-subtext">nenhuma alteração</span>
         </div>
       </div>
+      <!-- Barra de Modo de Edição Rápida / Pintura (Aparece apenas quando ativo) -->
+      <div id="paint-mode-bar" class="paint-mode-bar no-print" style="display: none;">
+        <div class="paint-mode-info">
+          <span class="paint-mode-icon">🖌️</span>
+          <span class="paint-mode-title">Edição Rápida Ativa:</span>
+          <span id="paint-mode-badge" class="paint-mode-badge badge-paint-m">M (Manhã)</span>
+          <span class="paint-mode-hint">— Clique nos dias desejados para aplicar o turno diretamente.</span>
+        </div>
+        <button type="button" id="btn-exit-paint-mode" class="btn-exit-paint-mode" title="Sair da Edição Rápida (Esc)">
+          <span class="exit-x-symbol">&times;</span>
+          <span class="exit-x-text">Sair da Edição Rápida</span>
+        </button>
+      </div>
+
       <div class="table-wrapper">
         <table class="schedule-table" id="schedule-table">
           <!-- Cabeçalho Renderizado via JS -->

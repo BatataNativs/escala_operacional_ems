@@ -245,6 +245,9 @@
       <span class="chip chip-m" title="Manhã"><strong>M</strong> (Manhã | 06h00 às 13h30)</span>
       <span class="chip chip-t" title="Tarde"><strong>T</strong> (Tarde | 13h30 às 23h00)</span>
       <span class="chip chip-r" title="RISAER | 24 Horas"><strong>R</strong> (RISAER | 24 horas)</span>
+      <button type="button" class="chip chip-holiday" id="chip-holiday-legend" title="Visualizar e gerenciar feriados e dias não úteis deste mês">
+        <span class="chip-star">★</span> <strong>Feriados: <span id="badge-holiday-count">0</span></strong> (Não útil | Etapa cheia)
+      </button>
     </div>
 
     <div class="quick-helpers">
@@ -259,6 +262,7 @@
         </button>
         <div id="dropdown-menu" class="dropdown-content">
           <a href="#" id="action-admin-reset-users" class="hidden">🔑 Resetar Senha de Operadores</a>
+          <a href="#" id="action-manage-holidays">📅 Feriados do Mês (<span id="menu-holiday-count">0</span>)</a>
           <a href="#" id="action-export-json">Exportar Backup (JSON)</a>
           <a href="#" id="action-import-json">Importar Escala (JSON)</a>
           <input type="file" id="file-input-json" accept=".json" style="display:none">
@@ -376,8 +380,8 @@
                     <th class="col-stat-pimo" title="Carga de Projetos e Trabalho Administrativo (PIMO)">Carga PIMO</th>
                     <th class="col-stat-met" title="Instruções Meteorológicas (Instrução MET)">Instrução MET</th>
                     <th class="col-stat-total" title="Carga horária total acumulada no mês">Carga total</th>
-                    <th class="col-stat-e5" title="Adicional de R$ 67,50 por turno T (-R$ 13,50 em dia útil)">Etapa 5x</th>
-                    <th class="col-stat-e10" title="Adicional de R$ 135,00 por serviço R (-R$ 13,50 em dia útil)">Etapa 10 X</th>
+                    <th class="col-stat-e5" title="Adicional por turno T: R$ 67,50 em fins de semana e feriados (-R$ 13,50 em dia útil)">Etapa 5x</th>
+                    <th class="col-stat-e10" title="Adicional por serviço R: R$ 135,00 em fins de semana e feriados (-R$ 13,50 em dia útil)">Etapa 10 X</th>
                   </tr>
                 </thead>
                 <tbody id="stats-tbody">
@@ -400,6 +404,59 @@
     <button class="shift-pop-btn t-btn" data-val="T">T</button>
     <button class="shift-pop-btn r-btn" data-val="R">R</button>
     <button class="shift-pop-btn clear-btn" data-val="">Limpar</button>
+  </div>
+
+  <!-- Modal de Gestão e Visualização de Feriados -->
+  <div id="modal-holidays" class="modal-overlay hidden">
+    <div class="modal-content modal-holidays-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modal-holidays-title">Feriados e Dias Não Úteis</h3>
+        <button id="btn-close-holidays" class="modal-close" title="Fechar">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="holidays-info-callout">
+          <div class="callout-icon">ℹ️</div>
+          <div class="callout-text">
+            <strong>Regra de Negócio (Etapas & Dias Úteis):</strong> Em dias de feriado (nacionais, estaduais de SP ou municipais da capital de SP), não há expediente administrativo (sem desconto de uma etapa R$ 13,50). Os turnos <strong>T</strong> (Etapa 5X: R$ 67,50) e <strong>R</strong> (Etapa 10X: R$ 135,00) são calculados no valor integral, e o dia não é contabilizado como dia útil.
+          </div>
+        </div>
+
+        <div class="holidays-table-wrapper">
+          <table class="holidays-table">
+            <thead>
+              <tr>
+                <th style="width: 75px;">Dia</th>
+                <th style="width: 70px;">Semana</th>
+                <th>Nome do Feriado</th>
+                <th style="width: 145px;">Tipo / Esfera</th>
+                <th style="width: 80px; text-align: center;">Status</th>
+              </tr>
+            </thead>
+            <tbody id="holidays-tbody">
+              <!-- Renderizado dinamicamente via JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <div class="add-holiday-box">
+          <h4 class="add-holiday-title">+ Adicionar Feriado / Ponto Facultativo no Mês</h4>
+          <div class="add-holiday-row">
+            <div class="form-group-day">
+              <label for="select-new-holiday-day">Dia do mês:</label>
+              <select id="select-new-holiday-day" class="input-select-day"></select>
+            </div>
+            <div class="form-group-name">
+              <label for="input-new-holiday-name">Nome do feriado / evento:</label>
+              <input type="text" id="input-new-holiday-name" placeholder="Ex: Feriado Municipal, Dia da OM..." class="input-text-name">
+            </div>
+            <button type="button" id="btn-add-custom-holiday" class="btn btn-primary btn-sm">Adicionar</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-confirm-holidays" class="btn btn-secondary">Fechar</button>
+      </div>
+    </div>
   </div>
 
   <!-- Modal de Configuração de PIMO e Instrução MET -->

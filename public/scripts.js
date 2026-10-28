@@ -19,7 +19,9 @@
     month: 9, // Outubro (0-indexed)
     sector: 'EMS-SP',
     operators: [],
-    observations: []
+    observations: [],
+    customHolidays: [],
+    disabledHolidays: []
   };
 
   // Estado da Aplicação
@@ -77,6 +79,20 @@
   const btnCloseExtraHours = document.getElementById('btn-close-extra-hours');
   const btnSaveExtraHours = document.getElementById('btn-save-extra-hours');
   const extraHoursTbody = document.getElementById('extra-hours-tbody');
+
+  // Gestão de Feriados e Dias Não Úteis
+  const chipHolidayLegend = document.getElementById('chip-holiday-legend');
+  const badgeHolidayCount = document.getElementById('badge-holiday-count');
+  const actionManageHolidays = document.getElementById('action-manage-holidays');
+  const menuHolidayCount = document.getElementById('menu-holiday-count');
+  const modalHolidays = document.getElementById('modal-holidays');
+  const modalHolidaysTitle = document.getElementById('modal-holidays-title');
+  const btnCloseHolidays = document.getElementById('btn-close-holidays');
+  const btnConfirmHolidays = document.getElementById('btn-confirm-holidays');
+  const holidaysTbody = document.getElementById('holidays-tbody');
+  const selectNewHolidayDay = document.getElementById('select-new-holiday-day');
+  const inputNewHolidayName = document.getElementById('input-new-holiday-name');
+  const btnAddCustomHoliday = document.getElementById('btn-add-custom-holiday');
 
   // Tela de Login Dedicada
   const loginScreen = document.getElementById('login-screen');
@@ -174,6 +190,12 @@
             });
             parsed.observations = [];
             localStorage.setItem(key, JSON.stringify(parsed));
+          }
+          if (!Array.isArray(parsed.customHolidays)) {
+            parsed.customHolidays = [];
+          }
+          if (!Array.isArray(parsed.disabledHolidays)) {
+            parsed.disabledHolidays = [];
           }
           return parsed;
         }
@@ -504,6 +526,133 @@
   // =========================================================================
   // CÁLCULO DE DIAS DO MÊS E CALENDÁRIO
   // =========================================================================
+  // MOTOR DE FERIADOS (NACIONAIS, ESTADUAIS DE SP E MUNICIPAIS DA CAPITAL)
+  // =========================================================================
+
+  // Algoritmo de Meeus/Jones/Butcher para cálculo astronômico do Domingo de Páscoa
+  function getEasterSunday(year) {
+    const a = year % 19;
+    const b = Math.floor(year / 100);
+    const c = year % 100;
+    const d = Math.floor(b / 4);
+    const e = b % 4;
+    const f = Math.floor((b + 8) / 25);
+    const g = Math.floor((b - f + 1) / 3);
+    const h = (19 * a + b - d - g + 15) % 30;
+    const i = Math.floor(c / 4);
+    const k = c % 4;
+    const l = (32 + 2 * e + 2 * i - h - k) % 7;
+    const m = Math.floor((a + 11 * h + 22 * l) / 451);
+    const month = Math.floor((h + l - 7 * m + 114) / 31) - 1; // 0-indexed (2: Março, 3: Abril)
+    const day = ((h + l - 7 * m + 114) % 31) + 1;
+    return new Date(year, month, day);
+  }
+
+  // Retorna a lista de feriados oficiais (Nacionais, Estado de SP e Capital de SP)
+  function getOfficialHolidaysForYear(year) {
+    const easter = getEasterSunday(year);
+    const addD = (days) => {
+      const d = new Date(year, easter.getMonth(), easter.getDate() + days);
+      return { month: d.getMonth(), day: d.getDate() };
+    };
+
+    const carnavalSeg = addD(-48);
+    const carnavalTer = addD(-47);
+    const sextaSanta = addD(-2);
+    const corpusChristi = addD(60);
+
+    return [
+      // Feriados Nacionais Fixos (Lei 10.607/2002 e Lei 6.802/1980)
+      { id: 'nat-01-01', month: 0, day: 1, name: 'Confraternização Universal (Ano Novo)', type: 'Feriado Nacional' },
+      { id: 'nat-04-21', month: 3, day: 21, name: 'Tiradentes', type: 'Feriado Nacional' },
+      { id: 'nat-05-01', month: 4, day: 1, name: 'Dia Mundial do Trabalho', type: 'Feriado Nacional' },
+      { id: 'nat-09-07', month: 8, day: 7, name: 'Independência do Brasil', type: 'Feriado Nacional' },
+      { id: 'nat-10-12', month: 9, day: 12, name: 'Nossa Senhora Aparecida (Padroeira do Brasil)', type: 'Feriado Nacional' },
+      { id: 'nat-11-02', month: 10, day: 2, name: 'Finados', type: 'Feriado Nacional' },
+      { id: 'nat-11-15', month: 10, day: 15, name: 'Proclamação da República', type: 'Feriado Nacional' },
+      { id: 'nat-11-20', month: 10, day: 20, name: 'Dia Nacional de Zumbi e da Consciência Negra (Lei 14.759/2023)', type: 'Feriado Nacional' },
+      { id: 'nat-12-25', month: 11, day: 25, name: 'Natal', type: 'Feriado Nacional' },
+
+      // Feriado Estadual - São Paulo (Lei Estadual nº 9.497/1997)
+      { id: 'sp-07-09', month: 6, day: 9, name: 'Revolução Constitucionalista de 1932', type: 'Feriado Estadual (SP)' },
+
+      // Feriado Municipal - São Paulo Capital (Lei Municipal nº 14.485/2007)
+      { id: 'sp-01-25', month: 0, day: 25, name: 'Aniversário da Cidade de São Paulo', type: 'Feriado Municipal (SP)' },
+
+      // Feriados Móveis
+      { id: 'mov-carnaval-seg', month: carnavalSeg.month, day: carnavalSeg.day, name: 'Segunda-feira de Carnaval', type: 'Ponto Facultativo' },
+      { id: 'mov-carnaval-ter', month: carnavalTer.month, day: carnavalTer.day, name: 'Terça-feira de Carnaval', type: 'Ponto Facultativo / Carnaval' },
+      { id: 'mov-sexta-santa', month: sextaSanta.month, day: sextaSanta.day, name: 'Sexta-feira Santa (Paixão de Cristo)', type: 'Feriado Nacional' },
+      { id: 'mov-corpus-christi', month: corpusChristi.month, day: corpusChristi.day, name: 'Corpus Christi', type: 'Feriado Municipal (SP)' }
+    ];
+  }
+
+  function getHolidayForDay(year, month, day, appState) {
+    const s = appState || state;
+    const disabled = (s && Array.isArray(s.disabledHolidays)) ? s.disabledHolidays : [];
+    const customs = (s && Array.isArray(s.customHolidays)) ? s.customHolidays : [];
+
+    // 1. Feriados personalizados do usuário no mês
+    const customMatch = customs.find(c => parseInt(c.day, 10) === day && (c.month === undefined || parseInt(c.month, 10) === month));
+    if (customMatch) {
+      return {
+        id: customMatch.id || `custom-${day}`,
+        name: customMatch.name || 'Feriado Local',
+        type: customMatch.type || 'Personalizado / OM',
+        isCustom: true,
+        isDisabled: false
+      };
+    }
+
+    // 2. Feriados oficiais
+    const officialList = getOfficialHolidaysForYear(year);
+    const match = officialList.find(h => h.month === month && h.day === day);
+    if (!match) return null;
+
+    const isDisabled = disabled.includes(match.id) || disabled.includes(day);
+    return {
+      ...match,
+      isCustom: false,
+      isDisabled
+    };
+  }
+
+  function getMonthHolidays(year, month, appState) {
+    const s = appState || state;
+    const disabled = (s && Array.isArray(s.disabledHolidays)) ? s.disabledHolidays : [];
+    const customs = (s && Array.isArray(s.customHolidays)) ? s.customHolidays : [];
+
+    const officialList = getOfficialHolidaysForYear(year).filter(h => h.month === month);
+    const list = officialList.map(h => {
+      const isDisabled = disabled.includes(h.id) || disabled.includes(h.day);
+      return {
+        ...h,
+        isCustom: false,
+        isDisabled
+      };
+    });
+
+    customs.forEach(c => {
+      if (c.month === undefined || parseInt(c.month, 10) === month) {
+        list.push({
+          id: c.id || `custom-${c.day}`,
+          month,
+          day: parseInt(c.day, 10),
+          name: c.name || 'Feriado Local',
+          type: c.type || 'Personalizado / OM',
+          isCustom: true,
+          isDisabled: false
+        });
+      }
+    });
+
+    list.sort((a, b) => a.day - b.day);
+    return list;
+  }
+
+  // =========================================================================
+  // CÁLCULO DE DIAS DO MÊS E CALENDÁRIO
+  // =========================================================================
   function getDaysInMonth(year, month) {
     return new Date(year, month + 1, 0).getDate();
   }
@@ -514,18 +663,26 @@
     for (let day = 1; day <= totalDays; day++) {
       const date = new Date(year, month, day);
       const dayOfWeek = date.getDay(); // 0: DOM, 6: SÁB
+      const holiday = getHolidayForDay(year, month, day, state);
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const isHoliday = Boolean(holiday && !holiday.isDisabled);
+      const isBusinessDay = !isWeekend && !isHoliday; // Dia útil
+
       days.push({
         dayNumber: day,
+        dayOfWeek,
         dayOfWeekName: WEEKDAY_NAMES[dayOfWeek],
-        isWeekend: dayOfWeek === 0 || dayOfWeek === 6
+        isWeekend,
+        isHoliday,
+        holidayName: holiday ? holiday.name : null,
+        holidayType: holiday ? holiday.type : null,
+        holidayIsCustom: holiday ? Boolean(holiday.isCustom) : false,
+        isBusinessDay
       });
     }
     return days;
   }
 
-  // =========================================================================
-  // RENDERIZAÇÃO DA TABELA
-  // =========================================================================
   function renderAll() {
     syncHeaderControls();
     renderHeader();
@@ -541,7 +698,7 @@
     inputSector.value = state.sector || 'EMS-SP';
   }
 
-  function renderHeader() {
+    function renderHeader() {
     const daysInfo = getMonthDaysInfo(state.year, state.month);
     const monthShort = MONTH_NAMES[state.month];
 
@@ -561,9 +718,10 @@
       <th class="cell-month col-leg">${monthShort}</th>
       <th class="cell-unit col-name" contenteditable="${currentMode === 'edit'}" data-action="edit-sector" spellcheck="false" title="Clique para editar Unidade/Setor">${escapeHtml(state.sector || 'EMS-SP')}</th>`;
     daysInfo.forEach(d => {
-      const cls = d.isWeekend ? 'cell-weekend' : 'cell-weekday';
+      const cls = d.isWeekend ? 'cell-weekend' : (d.isHoliday ? 'cell-holiday' : 'cell-weekday');
       const todayClass = (isCurrentYearMonth && d.dayNumber === currentDay) ? ' col-today' : '';
-      tr1 += `<th class="${cls} col-day${todayClass}">${d.dayOfWeekName}</th>`;
+      const holidayTitle = d.isHoliday ? ` title="${escapeHtml(d.holidayName)} (${d.holidayType}) - Não útil"` : '';
+      tr1 += `<th class="${cls} col-day${todayClass}"${holidayTitle}>${d.dayOfWeekName}</th>`;
     });
     tr1 += `</tr>`;
 
@@ -574,11 +732,23 @@
     daysInfo.forEach(d => {
       const todayClass = (isCurrentYearMonth && d.dayNumber === currentDay) ? ' col-today' : '';
       const weekendClass = d.isWeekend ? ' col-weekend' : '';
-      tr2 += `<th class="cell-day-num col-day${weekendClass}${todayClass}">${d.dayNumber}</th>`;
+      const holidayClass = d.isHoliday ? ' col-holiday' : '';
+      const holidayTitle = d.isHoliday ? ` title="Feriado: ${escapeHtml(d.holidayName)} (${d.holidayType}) - Dia não útil"` : '';
+      const holidayStar = d.isHoliday ? `<span class="hdr-holiday-indicator">★</span>` : '';
+      tr2 += `<th class="cell-day-num col-day${weekendClass}${holidayClass}${todayClass}"${holidayTitle}>${d.dayNumber}${holidayStar}</th>`;
     });
     tr2 += `</tr>`;
 
     thead.innerHTML = tr1 + tr2;
+
+    // Atualiza contadores de feriados na barra de legendas e no menu
+    const activeHolidays = daysInfo.filter(d => d.isHoliday);
+    if (badgeHolidayCount) {
+      badgeHolidayCount.textContent = activeHolidays.length;
+    }
+    if (menuHolidayCount) {
+      menuHolidayCount.textContent = activeHolidays.length;
+    }
   }
 
   // =========================================================================
@@ -784,9 +954,10 @@
       const offMap = getConsecutiveOffDaysMap(op, daysInfo);
       const conflictMap = getOperatorConflictsMap(op, daysInfo);
 
-      daysInfo.forEach(d => {
+            daysInfo.forEach(d => {
         const val = (op.shifts && op.shifts[d.dayNumber]) || '';
         const weekendClass = d.isWeekend ? ' col-weekend' : '';
+        const holidayClass = d.isHoliday ? ' col-holiday' : '';
         const todayClass = (isCurrentYearMonth && d.dayNumber === currentDay) ? ' col-today' : '';
 
         let streakClass = '';
@@ -806,7 +977,11 @@
           cellTitle = conflictInfo.message;
         }
 
-        html += `<td class="cell-shift col-day${weekendClass}${todayClass}${streakClass}${conflictClass}" 
+        if (!cellTitle && d.isHoliday) {
+          cellTitle = `Dia ${d.dayNumber}/${state.month + 1} - Feriado: ${d.holidayName} (${d.holidayType}) - Não útil / Etapa integral`;
+        }
+
+        html += `<td class="cell-shift col-day${weekendClass}${holidayClass}${todayClass}${streakClass}${conflictClass}" 
                     tabindex="${currentMode === 'edit' ? 0 : -1}" 
                     data-val="${escapeHtml(val)}" 
                     data-op-id="${safeOpId}" 
@@ -860,24 +1035,32 @@
     daysInfo.forEach(d => {
       // Turno principal
       const val = (op.shifts && op.shifts[d.dayNumber]) || '';
+      const isNonWorking = d.isWeekend || d.isHoliday; // Dia não útil: fim de semana ou feriado
+
       if (val === 'M') {
         countM++;
       } else if (val === 'T') {
         countT++;
         etapa5xTotalDias++;
-        if (!d.isWeekend) {
+        if (!isNonWorking) {
           etapa5xUteisDias++;
+          // Etapa 5X com desconto de rancho em dia útil com expediente ordinário (-R$ 13,50)
+          etapa5x += 54.0;
+        } else {
+          // Etapa 5X integral no fim de semana ou feriado (sem desconto de rancho): R$ 67,50
+          etapa5x += 67.5;
         }
-        // Etapa 5X: R$ 67,50 no fim de semana; R$ 54,00 em dia útil (-R$ 13,50)
-        etapa5x += d.isWeekend ? 67.5 : 54.0;
       } else if (val === 'R') {
         countR++;
         etapa10xTotalDias++;
-        if (!d.isWeekend) {
+        if (!isNonWorking) {
           etapa10xUteisDias++;
+          // Etapa 10X com desconto de rancho em dia útil com expediente ordinário (-R$ 13,50)
+          etapa10x += 121.5;
+        } else {
+          // Etapa 10X integral no fim de semana ou feriado (sem desconto de rancho): R$ 135,00
+          etapa10x += 135.0;
         }
-        // Etapa 10X: R$ 135,00 no fim de semana; R$ 121,50 em dia útil (-R$ 13,50)
-        etapa10x += d.isWeekend ? 135.0 : 121.5;
       }
     });
 
@@ -1156,7 +1339,140 @@
   // =========================================================================
   // GESTÃO DE CARGAS ADICIONAIS (PIMO & INSTRUÇÃO MET)
   // =========================================================================
-  function openExtraHoursModal() {
+    // =========================================================================
+  // GESTÃO E VISUALIZAÇÃO DE FERIADOS E DIAS NÃO ÚTEIS
+  // =========================================================================
+  function openHolidaysModal() {
+    if (!modalHolidays || !holidaysTbody) return;
+    renderHolidaysModal();
+    modalHolidays.classList.remove('hidden');
+  }
+
+  function closeHolidaysModal() {
+    if (!modalHolidays) return;
+    modalHolidays.classList.add('hidden');
+  }
+
+  function renderHolidaysModal() {
+    if (!holidaysTbody) return;
+    const monthName = MONTH_NAMES[state.month];
+    if (modalHolidaysTitle) {
+      modalHolidaysTitle.textContent = `Feriados e Dias Não Úteis - ${monthName}/${state.year} (${state.sector || 'EMS-SP'})`;
+    }
+
+    const holidays = getMonthHolidays(state.year, state.month, state);
+    const totalDays = getDaysInMonth(state.year, state.month);
+
+    // Popula seletor de dias
+    if (selectNewHolidayDay) {
+      let selHtml = '';
+      for (let day = 1; day <= totalDays; day++) {
+        const dObj = new Date(state.year, state.month, day);
+        const wName = WEEKDAY_NAMES[dObj.getDay()];
+        selHtml += `<option value="${day}">Dia ${String(day).padStart(2, '0')} (${wName})</option>`;
+      }
+      selectNewHolidayDay.innerHTML = selHtml;
+    }
+
+    if (holidays.length === 0) {
+      holidaysTbody.innerHTML = `<tr><td colspan="5" class="holidays-empty-cell">Nenhum feriado registrado para ${monthName}/${state.year}. Todos os dias entre segunda e sexta-feira são contabilizados como dias úteis ordinários.</td></tr>`;
+      return;
+    }
+
+    let rowsHtml = '';
+    holidays.forEach(h => {
+      const dObj = new Date(state.year, state.month, h.day);
+      const wName = WEEKDAY_NAMES[dObj.getDay()];
+      const isWeekendDay = dObj.getDay() === 0 || dObj.getDay() === 6;
+      const statusClass = h.isDisabled ? 'status-disabled' : 'status-active';
+
+      let actionBtn = '';
+      if (h.isCustom) {
+        actionBtn = `<button type="button" class="btn-holiday-del" data-action="del-custom-holiday" data-id="${escapeHtml(h.id)}" title="Excluir feriado personalizado">&times;</button>`;
+      } else {
+        actionBtn = `<button type="button" class="btn-holiday-toggle ${h.isDisabled ? 'btn-activate' : 'btn-deactivate'}" data-action="toggle-holiday" data-id="${escapeHtml(h.id)}" title="${h.isDisabled ? 'Reativar feriado' : 'Desativar feriado (tratar como dia útil ordinário)'}">
+          ${h.isDisabled ? 'Reativar' : 'Desativar'}
+        </button>`;
+      }
+
+      rowsHtml += `<tr>
+        <td class="holiday-day-cell"><strong>${String(h.day).padStart(2, '0')}</strong>/${String(state.month + 1).padStart(2, '0')}</td>
+        <td class="holiday-weekday-cell">${wName}</td>
+        <td class="holiday-name-cell">${escapeHtml(h.name)}</td>
+        <td class="holiday-type-cell"><span class="holiday-badge-type">${escapeHtml(h.type)}</span></td>
+        <td class="holiday-action-cell ${statusClass}">${actionBtn}</td>
+      </tr>`;
+    });
+
+    holidaysTbody.innerHTML = rowsHtml;
+  }
+
+  function addCustomHoliday() {
+    if (!selectNewHolidayDay || !inputNewHolidayName) return;
+    const day = parseInt(selectNewHolidayDay.value, 10);
+    const name = inputNewHolidayName.value.trim();
+    if (!day || !name) {
+      alert('Por favor, informe o dia e a descrição do feriado.');
+      return;
+    }
+
+    if (!Array.isArray(state.customHolidays)) {
+      state.customHolidays = [];
+    }
+
+    const existing = state.customHolidays.find(c => parseInt(c.day, 10) === day && (c.month === undefined || parseInt(c.month, 10) === state.month));
+    pushUnsavedSnapshot();
+    if (existing) {
+      existing.name = name;
+    } else {
+      state.customHolidays.push({
+        id: `custom-${state.year}-${state.month}-${day}-${Date.now()}`,
+        month: state.month,
+        day,
+        name,
+        type: 'Personalizado / OM'
+      });
+    }
+
+    inputNewHolidayName.value = '';
+    saveState();
+    recordLastChange(`Feriado adicionado no dia ${day}: "${name}"`);
+    renderHolidaysModal();
+    renderAll();
+  }
+
+  function deleteCustomHoliday(holidayId) {
+    if (!Array.isArray(state.customHolidays)) return;
+    pushUnsavedSnapshot();
+    const prev = state.customHolidays.find(c => c.id === holidayId);
+    state.customHolidays = state.customHolidays.filter(c => c.id !== holidayId);
+    saveState();
+    if (prev) {
+      recordLastChange(`Feriado personalizado removido do dia ${prev.day}: "${prev.name}"`);
+    }
+    renderHolidaysModal();
+    renderAll();
+  }
+
+  function toggleOfficialHoliday(holidayId) {
+    if (!Array.isArray(state.disabledHolidays)) {
+      state.disabledHolidays = [];
+    }
+    pushUnsavedSnapshot();
+    const idx = state.disabledHolidays.indexOf(holidayId);
+    if (idx >= 0) {
+      state.disabledHolidays.splice(idx, 1);
+      recordLastChange(`Feriado reativado [${holidayId}]`);
+    } else {
+      state.disabledHolidays.push(holidayId);
+      recordLastChange(`Feriado desativado [${holidayId}]`);
+    }
+    saveState();
+    renderHolidaysModal();
+    renderAll();
+  }
+
+function openExtraHoursModal() {
     if (!modalExtraHours || !extraHoursTbody) return;
     let html = '';
     state.operators.forEach(op => {
@@ -2771,7 +3087,49 @@
       }
     });
 
-    // 12. Modal de Cargas Adicionais (PIMO / MET)
+        // 12. Gestão de Feriados e Dias Não Úteis
+    if (chipHolidayLegend) {
+      chipHolidayLegend.addEventListener('click', openHolidaysModal);
+    }
+    if (actionManageHolidays) {
+      actionManageHolidays.addEventListener('click', (e) => {
+        e.preventDefault();
+        dropdownMenu.classList.remove('show');
+        openHolidaysModal();
+      });
+    }
+    if (btnCloseHolidays) {
+      btnCloseHolidays.addEventListener('click', closeHolidaysModal);
+    }
+    if (btnConfirmHolidays) {
+      btnConfirmHolidays.addEventListener('click', closeHolidaysModal);
+    }
+    if (modalHolidays) {
+      modalHolidays.addEventListener('click', (e) => {
+        if (e.target === modalHolidays) closeHolidaysModal();
+      });
+    }
+    if (btnAddCustomHoliday) {
+      btnAddCustomHoliday.addEventListener('click', addCustomHoliday);
+    }
+    if (holidaysTbody) {
+      holidaysTbody.addEventListener('click', (e) => {
+        const btnDel = e.target.closest('[data-action="del-custom-holiday"]');
+        if (btnDel) {
+          const id = btnDel.getAttribute('data-id');
+          deleteCustomHoliday(id);
+          return;
+        }
+        const btnToggle = e.target.closest('[data-action="toggle-holiday"]');
+        if (btnToggle) {
+          const id = btnToggle.getAttribute('data-id');
+          toggleOfficialHoliday(id);
+          return;
+        }
+      });
+    }
+
+// 12. Modal de Cargas Adicionais (PIMO / MET)
     if (btnOpenExtraHours) {
       btnOpenExtraHours.addEventListener('click', openExtraHoursModal);
     }

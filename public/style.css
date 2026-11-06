@@ -676,11 +676,6 @@ body.dark-theme .stepper-arrow:hover {
   filter: brightness(1.15);
   transform: translateY(-1px);
 }
-.chip-holiday .chip-star {
-  color: #fef08a;
-  font-weight: 900;
-  margin-right: 2px;
-}
 
 .quick-helpers {
   display: flex;
@@ -4725,4 +4720,597 @@ body.dark-theme .paint-mode-hint {
   outline: 2px dashed #2563eb !important;
   outline-offset: -2px;
   filter: brightness(1.05);
+}
+
+
+/* ==========================================================================
+   REFINAMENTO VISUAL (CAMADA ESTÉTICA) - TABELAS & CABEÇALHO
+   Apenas transparências, arredondamentos, brilhos e sombras.
+   Mantém a paleta original (claro/escuro). Restrito à tela: não afeta impressão/PDF.
+   ========================================================================== */
+@media screen {
+
+  /* ---------- Tokens auxiliares da camada estética ---------- */
+  :root {
+    --glass-header-bg: rgba(255, 255, 255, 0.78);
+    --glass-border: rgba(148, 163, 184, 0.28);
+    --glass-highlight: rgba(255, 255, 255, 0.65);
+    --thead-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.13) 0%, rgba(255, 255, 255, 0.02) 55%, rgba(0, 0, 0, 0.06) 100%);
+    --thead-divider: rgba(255, 255, 255, 0.09);
+    --pill-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.06) 50%, rgba(0, 0, 0, 0.04) 100%);
+    --pill-shadow: 0 1px 2px rgba(15, 23, 42, 0.14), inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+    --zebra-tint: rgba(100, 116, 139, 0.045);
+    --row-hover-tint: rgba(59, 130, 246, 0.11);
+    --radius-pill: 999px;
+  }
+
+  body.dark-theme {
+    --glass-header-bg: rgba(17, 24, 39, 0.72);
+    --glass-border: rgba(148, 163, 184, 0.14);
+    --glass-highlight: rgba(255, 255, 255, 0.05);
+    --thead-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.01) 55%, rgba(0, 0, 0, 0.12) 100%);
+    --thead-divider: rgba(255, 255, 255, 0.06);
+    --pill-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.03) 50%, rgba(0, 0, 0, 0.08) 100%);
+    --pill-shadow: 0 1px 3px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    --zebra-tint: rgba(148, 163, 184, 0.05);
+    --row-hover-tint: rgba(96, 165, 250, 0.14);
+  }
+
+  /* ======================================================================
+     CABEÇALHO DA APLICAÇÃO: VIDRO FOSCO + FILETE DE DESTAQUE
+     ====================================================================== */
+  .app-header {
+    background: var(--glass-header-bg);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
+    backdrop-filter: saturate(180%) blur(14px);
+    border-bottom: 1px solid var(--glass-border);
+    box-shadow: inset 0 1px 0 var(--glass-highlight), 0 8px 24px -14px rgba(15, 23, 42, 0.35);
+  }
+
+  body.dark-theme .app-header {
+    box-shadow: inset 0 1px 0 var(--glass-highlight), 0 10px 28px -14px rgba(0, 0, 0, 0.75);
+  }
+
+  /* Filete luminoso na base do cabeçalho */
+  .app-header::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent 0%, rgba(37, 99, 235, 0.0) 8%, rgba(37, 99, 235, 0.55) 35%, rgba(96, 165, 250, 0.75) 50%, rgba(37, 99, 235, 0.55) 65%, rgba(37, 99, 235, 0.0) 92%, transparent 100%);
+    pointer-events: none;
+    opacity: 0.7;
+  }
+
+  body.dark-theme .app-header::after {
+    background: linear-gradient(90deg, transparent 0%, rgba(56, 189, 248, 0.0) 8%, rgba(59, 130, 246, 0.5) 35%, rgba(56, 189, 248, 0.7) 50%, rgba(59, 130, 246, 0.5) 65%, rgba(56, 189, 248, 0.0) 92%, transparent 100%);
+  }
+
+  /* Ícone da marca com brilho de vidro */
+  .brand-icon {
+    border-radius: 12px;
+    background:
+      linear-gradient(160deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0) 45%),
+      linear-gradient(135deg, #1e40af, #3b82f6);
+    box-shadow: 0 4px 12px -2px rgba(37, 99, 235, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+  }
+
+  /* Cápsula central (tema, mês, ano, setor) translúcida */
+  .header-center {
+    background: rgba(241, 245, 249, 0.6);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    box-shadow: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(15, 23, 42, 0.04);
+  }
+
+  body.dark-theme .header-center {
+    background: rgba(30, 41, 59, 0.55);
+  }
+
+  .ctrl-select,
+  .ctrl-input {
+    border-radius: 9px;
+  }
+
+  .month-stepper-arrows,
+  .year-stepper-arrows,
+  .stepper-arrows {
+    border-top-right-radius: 9px;
+    border-bottom-right-radius: 9px;
+  }
+
+  .btn-theme {
+    border-radius: 11px;
+  }
+
+  .btn-go-today {
+    border-radius: var(--radius-pill);
+    padding: 0 12px;
+  }
+
+  /* Alternador Edição / Visualização em formato de pílula segmentada */
+  .view-toggle {
+    background: rgba(241, 245, 249, 0.6);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.06);
+  }
+
+  body.dark-theme .view-toggle {
+    background: rgba(30, 41, 59, 0.55);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  }
+
+  .toggle-btn {
+    border-radius: 9px;
+  }
+
+  .toggle-btn:not(.active):hover {
+    color: var(--text-main);
+    background: rgba(100, 116, 139, 0.1);
+  }
+
+  .toggle-btn.active {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.7)), var(--bg-card);
+    color: var(--primary);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12), inset 0 0 0 1px rgba(37, 99, 235, 0.15);
+  }
+
+  body.dark-theme .toggle-btn.active {
+    background: linear-gradient(180deg, rgba(59, 130, 246, 0.22), rgba(59, 130, 246, 0.1)), var(--bg-card);
+    color: #93c5fd;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(96, 165, 250, 0.25);
+  }
+
+  .btn {
+    border-radius: 9px;
+  }
+
+  .btn-secondary {
+    background: rgba(255, 255, 255, 0.65);
+    border-color: var(--glass-border);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  }
+
+  .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(37, 99, 235, 0.3);
+    box-shadow: 0 2px 6px -1px rgba(37, 99, 235, 0.18);
+  }
+
+  body.dark-theme .btn-secondary {
+    background: rgba(30, 41, 59, 0.55);
+  }
+
+  body.dark-theme .btn-secondary:hover {
+    background: rgba(30, 41, 59, 0.9);
+    border-color: rgba(96, 165, 250, 0.35);
+    box-shadow: 0 2px 8px -1px rgba(0, 0, 0, 0.5);
+  }
+
+  .btn-icon {
+    border-radius: 9px;
+  }
+
+  .dropdown-content {
+    border-radius: 12px;
+    padding: 6px;
+    background: var(--glass-header-bg);
+    -webkit-backdrop-filter: saturate(180%) blur(16px);
+    backdrop-filter: saturate(180%) blur(16px);
+    border-color: var(--glass-border);
+  }
+
+  .dropdown-content a {
+    border-radius: 8px;
+  }
+
+  /* Barra rápida (legendas) levemente translúcida */
+  .quick-bar {
+    background: rgba(255, 255, 255, 0.7);
+    border-bottom: 1px solid var(--glass-border);
+  }
+
+  body.dark-theme .quick-bar {
+    background: rgba(21, 29, 48, 0.7);
+  }
+
+  .chip {
+    border-radius: var(--radius-pill);
+    padding: 3px 11px;
+    background-image: var(--pill-sheen);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  }
+
+  .search-box input {
+    border-radius: var(--radius-pill);
+  }
+
+  .year-badge {
+    border-radius: 9px;
+    background:
+      linear-gradient(160deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 50%),
+      linear-gradient(135deg, #1e293b, #0f172a);
+  }
+
+  body.dark-theme .year-badge {
+    background:
+      linear-gradient(160deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 50%),
+      linear-gradient(135deg, #1e3a8a, #1d4ed8);
+  }
+
+  .last-change-display {
+    border-radius: var(--radius-pill);
+  }
+
+  /* ======================================================================
+     CONTÊINER DA PLANILHA
+     ====================================================================== */
+  .sheet-container {
+    border-radius: 18px;
+    border-color: var(--glass-border);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 32px -16px rgba(15, 23, 42, 0.18);
+  }
+
+  body.dark-theme .sheet-container {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 36px -16px rgba(0, 0, 0, 0.7);
+  }
+
+  .table-wrapper {
+    border-radius: var(--radius-lg);
+    border-color: rgba(148, 163, 184, 0.55);
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 116, 139, 0.45) transparent;
+  }
+
+  body.dark-theme .table-wrapper {
+    border-color: rgba(51, 65, 85, 0.9);
+  }
+
+  .table-wrapper::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  .table-wrapper::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .table-wrapper::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.4);
+    border-radius: var(--radius-pill);
+  }
+
+  .table-wrapper::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 116, 139, 0.65);
+  }
+
+  /* ======================================================================
+     TABELA DA ESCALA: CABEÇALHO (MÊS, UNIDADE, SEMANA, DIAS)
+     ====================================================================== */
+  .schedule-table thead th {
+    background-image: var(--thead-sheen);
+    border-right-color: var(--thead-divider);
+    border-bottom-color: var(--thead-divider);
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.22);
+  }
+
+  .schedule-table thead tr:first-child th {
+    border-top-color: transparent;
+  }
+
+  .schedule-table thead th:first-child {
+    border-left-color: transparent;
+  }
+
+  /* Linha dos números dos dias: base levemente mais marcada */
+  .schedule-table thead tr:last-child th {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.25);
+  }
+
+  .cell-month {
+    letter-spacing: 0.12em;
+  }
+
+  .cell-unit:hover {
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04));
+  }
+
+  /* Estrela de feriado com leve brilho */
+  .hdr-holiday-indicator {
+    text-shadow: 0 0 4px rgba(254, 240, 138, 0.8);
+  }
+
+  /* ======================================================================
+     TABELA DA ESCALA: CORPO
+     ====================================================================== */
+
+  /* Divisórias internas do corpo mais suaves */
+  .schedule-table tbody td {
+    border-right-color: rgba(148, 163, 184, 0.35);
+    border-bottom-color: rgba(148, 163, 184, 0.35);
+  }
+
+  body.dark-theme .schedule-table tbody td {
+    border-right-color: rgba(100, 116, 139, 0.28);
+    border-bottom-color: rgba(100, 116, 139, 0.28);
+  }
+
+  /* Coluna Leg.: brilho de vidro sobre a cor original */
+  .cell-leg-val {
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 60%);
+  }
+
+  .leg-move-arrows {
+    border-radius: 6px;
+  }
+
+  /* Nome do operador em "etiqueta" arredondada */
+  .op-name-text {
+    border-radius: 7px;
+  }
+
+  .btn-del-op {
+    border-radius: 6px;
+  }
+
+  /* Faixa separadora entre operadores com volume sutil */
+  .row-blue-stripe td {
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(0, 0, 0, 0.1) 100%);
+    border-right-color: transparent !important;
+    border-bottom-color: rgba(0, 0, 0, 0.12) !important;
+  }
+
+  /* --- Turnos M / T / R como "pílulas" arredondadas dentro da célula --- */
+  .schedule-table td.cell-shift[data-val="M"],
+  .schedule-table td.cell-shift[data-val="T"],
+  .schedule-table td.cell-shift[data-val="R"] {
+    background-color: var(--color-operator-row) !important;
+    /* .col-day força position: static !important; a pílula precisa da célula como referência */
+    position: relative !important;
+    isolation: isolate;
+  }
+
+  .schedule-table td.cell-shift[data-val="R"] {
+    box-shadow: none;
+  }
+
+  .schedule-table td.cell-shift[data-val="M"]::before,
+  .schedule-table td.cell-shift[data-val="T"]::before,
+  .schedule-table td.cell-shift[data-val="R"]::before {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    border-radius: 7px;
+    z-index: -1;
+    box-shadow: var(--pill-shadow);
+    transition: transform 0.14s ease, box-shadow 0.14s ease, filter 0.14s ease;
+    pointer-events: none;
+  }
+
+  .schedule-table td.cell-shift[data-val="M"]::before {
+    background: var(--pill-sheen), var(--color-shift-m-bg);
+  }
+
+  .schedule-table td.cell-shift[data-val="T"]::before {
+    background: var(--pill-sheen), var(--color-shift-t-bg);
+  }
+
+  .schedule-table td.cell-shift[data-val="R"]::before {
+    background: var(--pill-sheen), var(--color-shift-r-bg);
+  }
+
+  /* Fundo da célula acompanha o hover da linha; a pílula mantém a cor do turno */
+  .schedule-table .row-operator:hover td.cell-shift[data-val="M"],
+  .schedule-table .row-operator:hover td.cell-shift[data-val="T"],
+  .schedule-table .row-operator:hover td.cell-shift[data-val="R"] {
+    background-color: var(--color-operator-row-hover) !important;
+  }
+
+  /* Microinteração: a pílula "salta" levemente ao passar o cursor */
+  .schedule-table td.cell-shift[data-val]:hover::before {
+    transform: scale(1.06);
+    box-shadow: 0 3px 8px -2px rgba(15, 23, 42, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+  }
+
+  body.mode-view .schedule-table td.cell-shift[data-val]:hover::before {
+    transform: none;
+  }
+
+  /* Destaque de busca preservado também nas células preenchidas */
+  .schedule-table .operator-matched td.cell-shift[data-val="M"],
+  .schedule-table .operator-matched td.cell-shift[data-val="T"],
+  .schedule-table .operator-matched td.cell-shift[data-val="R"] {
+    background-color: rgba(37, 99, 235, 0.16) !important;
+  }
+
+  body.dark-theme .schedule-table .operator-matched td.cell-shift[data-val="M"],
+  body.dark-theme .schedule-table .operator-matched td.cell-shift[data-val="T"],
+  body.dark-theme .schedule-table .operator-matched td.cell-shift[data-val="R"] {
+    background-color: rgba(59, 130, 246, 0.24) !important;
+  }
+
+  /* Células vazias: hover com leve tom translúcido */
+  .schedule-table td.cell-shift:not([data-val="M"]):not([data-val="T"]):not([data-val="R"]):hover {
+    background-color: rgba(37, 99, 235, 0.1) !important;
+  }
+
+  /* ======================================================================
+     BOTÃO ADICIONAR OPERADOR
+     ====================================================================== */
+  .btn-add-op-solo {
+    border-radius: var(--radius-pill);
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0));
+    box-shadow: 0 2px 6px -1px rgba(37, 99, 235, 0.4);
+  }
+
+  /* ======================================================================
+     CARTÕES INFERIORES: OBSERVAÇÕES & CARGA HORÁRIA
+     ====================================================================== */
+  .obs-card,
+  .stats-card {
+    border-radius: var(--radius-lg);
+    border-color: var(--glass-border);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 8px 22px -14px rgba(15, 23, 42, 0.25);
+  }
+
+  body.dark-theme .obs-card,
+  body.dark-theme .stats-card {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 26px -14px rgba(0, 0, 0, 0.7);
+  }
+
+  .obs-header,
+  .stats-header {
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 70%);
+    border-bottom-color: rgba(0, 0, 0, 0.12);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  }
+
+  .obs-title,
+  .stats-title {
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+  }
+
+  .btn-obs {
+    border-radius: var(--radius-pill);
+    padding: 3px 10px;
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+  }
+
+  .stats-badge {
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  }
+
+  .obs-row {
+    margin: 0 6px;
+    border-radius: 8px;
+  }
+
+  .obs-text {
+    border-radius: 6px;
+  }
+
+  .obs-text:focus {
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35);
+  }
+
+  /* --- Tabela de Carga Horária --- */
+  .stats-table th {
+    background-image: linear-gradient(180deg, rgba(37, 99, 235, 0.06) 0%, rgba(37, 99, 235, 0.015) 100%);
+    border-bottom: 1px solid rgba(37, 99, 235, 0.22);
+    border-right-color: rgba(148, 163, 184, 0.22);
+    box-shadow: inset 0 -1px 0 rgba(37, 99, 235, 0.08);
+  }
+
+  body.dark-theme .stats-table th {
+    background-image: linear-gradient(180deg, rgba(96, 165, 250, 0.08) 0%, rgba(96, 165, 250, 0.02) 100%);
+    border-bottom-color: rgba(96, 165, 250, 0.25);
+  }
+
+  .stats-table td {
+    border-bottom-color: rgba(148, 163, 184, 0.2);
+    border-right-color: rgba(148, 163, 184, 0.16);
+    transition: background-color 0.15s ease;
+  }
+
+  /* Linhas zebradas suaves */
+  .stats-table tbody tr:nth-child(even) td {
+    background-color: var(--zebra-tint);
+  }
+
+  .stats-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  /* Hover translúcido, mais leve e legível nos dois temas */
+  .stats-table tbody tr:hover td {
+    background-color: var(--row-hover-tint);
+  }
+
+  /* Coluna total preservando o destaque também no zebrado/hover */
+  .stats-table tbody td.col-stat-total {
+    background-image: linear-gradient(0deg, rgba(2, 132, 199, 0.05), rgba(2, 132, 199, 0.05));
+  }
+
+  body.dark-theme .stats-table tbody td.col-stat-total {
+    background-image: linear-gradient(0deg, rgba(96, 165, 250, 0.08), rgba(96, 165, 250, 0.08));
+  }
+
+  .stat-leg-badge {
+    border-radius: 7px;
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 60%);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.2), inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  }
+
+  .stats-memorial-footer {
+    background-color: rgba(241, 245, 249, 0.6);
+    border-top: 1px dashed rgba(148, 163, 184, 0.35);
+  }
+
+  body.dark-theme .stats-memorial-footer {
+    background-color: rgba(30, 41, 59, 0.45);
+  }
+
+  .stats-table-wrapper::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .stats-table-wrapper::-webkit-scrollbar-thumb {
+    border-radius: var(--radius-pill);
+  }
+
+  /* ======================================================================
+     MODAIS: TABELAS DE FERIADOS E CARGAS ADICIONAIS
+     ====================================================================== */
+  .modal-overlay {
+    background: rgba(15, 23, 42, 0.5);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+  }
+
+  .modal-content {
+    border-radius: 16px;
+  }
+
+  .modal-header {
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 80%);
+  }
+
+  .extra-hours-table-wrapper,
+  .holidays-table-wrapper {
+    border-radius: 12px;
+    border-color: var(--glass-border);
+  }
+
+  .extra-hours-table th,
+  .holidays-table th {
+    background-image: linear-gradient(180deg, rgba(37, 99, 235, 0.06) 0%, rgba(37, 99, 235, 0.015) 100%);
+  }
+
+  .extra-hours-table tbody tr:nth-child(even) td,
+  .holidays-table tbody tr:nth-child(even) td {
+    background-color: var(--zebra-tint);
+  }
+
+  .extra-hours-table tbody tr:hover td,
+  .holidays-table tbody tr:hover td {
+    background-color: var(--row-hover-tint);
+  }
+
+  .shift-popover {
+    border-radius: 14px;
+    background: var(--glass-header-bg);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
+    backdrop-filter: saturate(180%) blur(14px);
+    border-color: var(--glass-border);
+  }
+
+  .shift-pop-btn {
+    border-radius: 9px;
+    background-image: var(--pill-sheen);
+  }
 }

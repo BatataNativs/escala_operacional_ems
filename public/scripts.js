@@ -487,11 +487,19 @@
           if (!cloudHasShifts && localHasShifts) {
             // Preserva os dados locais preenchidos para não apagar a escala do usuário
             state = localState;
+            if (!Array.isArray(state.customHolidays)) state.customHolidays = [];
+            if (!Array.isArray(state.disabledHolidays)) state.disabledHolidays = [];
             hasUnsavedChanges = true;
             updateSaveButtonUI('pending');
             triggerSaveIndicator('Recuperado do cache local', 'cloud-syncing');
           } else {
             state = json.data;
+            if (!Array.isArray(state.customHolidays)) {
+              state.customHolidays = (localState && Array.isArray(localState.customHolidays)) ? localState.customHolidays : [];
+            }
+            if (!Array.isArray(state.disabledHolidays)) {
+              state.disabledHolidays = (localState && Array.isArray(localState.disabledHolidays)) ? localState.disabledHolidays : [];
+            }
             localStorage.setItem(key, JSON.stringify(state));
             baselineSavedJson = JSON.stringify(state);
             unsavedHistory = [];
@@ -517,6 +525,8 @@
     if (localData) {
       try {
         state = JSON.parse(localData);
+        if (!Array.isArray(state.customHolidays)) state.customHolidays = [];
+        if (!Array.isArray(state.disabledHolidays)) state.disabledHolidays = [];
       } catch (e) {}
     } else {
       // Se não tem local daquele mês, mantém o efetivo de operadores e limpa turnos
@@ -530,6 +540,8 @@
         op.instrucaoMet = 0;
       });
       state.observations = [];
+      state.customHolidays = [];
+      state.disabledHolidays = [];
     }
     baselineSavedJson = JSON.stringify(state);
     unsavedHistory = [];
@@ -760,6 +772,57 @@
     selectMonth.value = state.month;
     inputYear.value = state.year;
     inputSector.value = state.sector || 'EMS-SP';
+
+    const btnGoToday = document.getElementById('btn-go-today');
+    if (btnGoToday) {
+      const now = new Date();
+      const isCurrent = state.year === now.getFullYear() && state.month === now.getMonth();
+      btnGoToday.classList.toggle('is-current-period', isCurrent);
+      btnGoToday.title = isCurrent
+        ? 'Você já está visualizando o mês corrente'
+        : 'Voltar para o mês e ano atuais';
+    }
+  }
+
+  // Verifica se há turnos lançados no mês e quais dias possuem cobertura M e T (ICA 63-33, item 4.2.2.1)
+  function getDayCoverageInfo(dayNumber) {
+    const ops = state.operators || [];
+    const monthHasAnyShift = ops.some(o => o.shifts && Object.keys(o.shifts).length > 0);
+    if (!monthHasAnyShift) {
+      return { incomplete: false, missingText: '' };
+    }
+    let hasM = false;
+    let hasT = false;
+    ops.forEach(o => {
+      const v = (o.shifts && o.shifts[dayNumber]) ? o.shifts[dayNumber].trim().toUpperCase() : '';
+      if (v === 'M') hasM = true;
+      if (v === 'T') hasT = true;
+    });
+    const missing = [];
+    if (!hasM) missing.push('M (Manhã)');
+    if (!hasT) missing.push('T (Tarde)');
+    return {
+      incomplete: missing.length > 0,
+      missingText: missing.length > 0 ? `Cobertura H17 pendente no dia ${dayNumber}: falta escalar turno ${missing.join(' e ')} (ICA 63-33, item 4.2.2.1)` : ''
+    };
+  }
+
+  function refreshHeaderCoverageIndicators() {
+    if (!thead) return;
+    const daysInfo = getMonthDaysInfo(state.year, state.month);
+    daysInfo.forEach(d => {
+      const th = thead.querySelector(`th.cell-day-num[data-header-day="${d.dayNumber}"]`);
+      if (!th) return;
+      const cov = getDayCoverageInfo(d.dayNumber);
+      th.classList.toggle('day-coverage-incomplete', cov.incomplete);
+      const baseHolidayTitle = d.isHoliday ? `Feriado: ${d.holidayName} (${d.holidayType}) - Dia não útil` : '';
+      const combinedTitle = [baseHolidayTitle, cov.missingText].filter(Boolean).join(' • ');
+      if (combinedTitle) {
+        th.setAttribute('title', combinedTitle);
+      } else {
+        th.removeAttribute('title');
+      }
+    });
   }
 
     function renderHeader() {
@@ -799,8 +862,12 @@
       const todayClass = (isCurrentYearMonth && d.dayNumber === currentDay) ? ' col-today' : '';
       const weekendClass = d.isWeekend ? ' col-weekend' : '';
       const holidayClass = d.isHoliday ? ' col-holiday' : '';
-      const holidayTitle = d.isHoliday ? ` title="Feriado: ${escapeHtml(d.holidayName)} (${d.holidayType}) - Dia não útil"` : '';
-      tr2 += `<th class="cell-day-num col-day${weekendClass}${holidayClass}${todayClass}"${holidayTitle}>${d.dayNumber}</th>`;
+      const cov = getDayCoverageInfo(d.dayNumber);
+      const covClass = cov.incomplete ? ' day-coverage-incomplete' : '';
+      const baseHolidayTitle = d.isHoliday ? `Feriado: ${d.holidayName} (${d.holidayType}) - Dia não útil` : '';
+      const combinedTitle = [baseHolidayTitle, cov.missingText].filter(Boolean).join(' • ');
+      const titleAttr = combinedTitle ? ` title="${escapeHtml(combinedTitle)}"` : '';
+      tr2 += `<th class="cell-day-num col-day${weekendClass}${holidayClass}${todayClass}${covClass}" data-header-day="${d.dayNumber}"${titleAttr}>${d.dayNumber}</th>`;
     });
     tr2 += `</tr>`;
 
@@ -820,10 +887,51 @@
   // REGRAS DE NEGÓCIO E ALERTAS DA ICA 63-33
   // =========================================================================
 
+  // Busca dados do operador no mês imediatamente anterior (se existir no cache local) para validar a virada de mês
+  function getPrevMonthOperatorContext(op) {
+    if (!op) return null;
+    try {
+      let prevMonth = state.month - 1;
+      let prevYear = state.year;
+      if (prevMonth < 0) {
+        prevMonth = 11;
+        prevYear -= 1;
+      }
+      const prevKey = getMonthStorageKey(prevYear, prevMonth, state.sector);
+      const raw = localStorage.getItem(prevKey);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || !Array.isArray(parsed.operators)) return null;
+      const prevOp = parsed.operators.find(o => o.id === op.id || (o.name && op.name && o.name.trim().toLowerCase() === op.name.trim().toLowerCase()));
+      if (!prevOp || !prevOp.shifts) return null;
+      const lastDay = getDaysInMonth(prevYear, prevMonth);
+      const lastDayShift = prevOp.shifts[lastDay] ? prevOp.shifts[lastDay].trim().toUpperCase() : '';
+
+      let trailingOffDays = 0;
+      for (let d = lastDay; d >= 1; d--) {
+        const s = prevOp.shifts[d] ? prevOp.shifts[d].trim() : '';
+        if (!s) trailingOffDays++;
+        else break;
+      }
+
+      return {
+        prevYear,
+        prevMonth,
+        lastDay,
+        lastDayShift,
+        trailingOffDays
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
   // Detecta sequências de mais de 5 folgas consecutivas (> 5 dias sem serviço operacional - ICA 63-33, item 8.4.5.1)
   function getConsecutiveOffDaysMap(op, daysInfo) {
     const map = {};
     let currentStreak = [];
+    const prevCtx = getPrevMonthOperatorContext(op);
+    const prevTrailingOff = prevCtx ? prevCtx.trailingOffDays : 0;
 
     for (let i = 0; i < daysInfo.length; i++) {
       const d = daysInfo[i];
@@ -833,51 +941,68 @@
       if (isOff) {
         currentStreak.push(d.dayNumber);
       } else {
-        if (currentStreak.length > 5) {
+        const startsAtDay1 = currentStreak.length > 0 && currentStreak[0] === 1;
+        const effectiveLen = currentStreak.length + (startsAtDay1 ? prevTrailingOff : 0);
+        if (effectiveLen > 5) {
           const len = currentStreak.length;
           const startDay = currentStreak[0];
           const endDay = currentStreak[len - 1];
           currentStreak.forEach((dayNum, idx) => {
             let type = 'mid';
-            if (idx === 0) type = 'start';
+            if (idx === 0 && (!startsAtDay1 || prevTrailingOff === 0)) type = 'start';
             else if (idx === len - 1) type = 'end';
-            map[dayNum] = { type, length: len, startDay, endDay };
+            map[dayNum] = { type, length: effectiveLen, startDay, endDay };
           });
         }
         currentStreak = [];
       }
     }
 
-    if (currentStreak.length > 5) {
-      const len = currentStreak.length;
-      const startDay = currentStreak[0];
-      const endDay = currentStreak[len - 1];
-      currentStreak.forEach((dayNum, idx) => {
-        let type = 'mid';
-        if (idx === 0) type = 'start';
-        else if (idx === len - 1) type = 'end';
-        map[dayNum] = { type, length: len, startDay, endDay };
-      });
+    if (currentStreak.length > 0) {
+      const startsAtDay1 = currentStreak[0] === 1;
+      const effectiveLen = currentStreak.length + (startsAtDay1 ? prevTrailingOff : 0);
+      if (effectiveLen > 5) {
+        const len = currentStreak.length;
+        const startDay = currentStreak[0];
+        const endDay = currentStreak[len - 1];
+        currentStreak.forEach((dayNum, idx) => {
+          let type = 'mid';
+          if (idx === 0 && (!startsAtDay1 || prevTrailingOff === 0)) type = 'start';
+          else if (idx === len - 1) type = 'end';
+          map[dayNum] = { type, length: effectiveLen, startDay, endDay };
+        });
+      }
     }
 
     return map;
   }
 
-  // Detecta conflito de 24h de descanso pós-RISAER -> Turno M (ICA 63-33, Tab. 30)
+  // Detecta conflito de 24h de descanso pós-RISAER -> Turno no dia seguinte (ICA 63-33, Tab. 30)
   function getOperatorConflictsMap(op, daysInfo) {
     const map = {};
     if (!op || !op.shifts) return map;
+    const prevCtx = getPrevMonthOperatorContext(op);
 
     daysInfo.forEach(d => {
       const day = d.dayNumber;
-      const val = op.shifts[day];
-      if (val === 'M') {
-        const prevVal = op.shifts[day - 1];
+      const val = op.shifts[day] ? op.shifts[day].trim().toUpperCase() : '';
+      if (val === 'M' || val === 'T' || val === 'R') {
+        let prevVal = '';
+        let prevDayLabel = String(day - 1);
+        if (day === 1) {
+          if (prevCtx && prevCtx.lastDayShift) {
+            prevVal = prevCtx.lastDayShift;
+            prevDayLabel = `${prevCtx.lastDay}/${MONTH_NAMES[prevCtx.prevMonth]}`;
+          }
+        } else {
+          prevVal = op.shifts[day - 1] ? op.shifts[day - 1].trim().toUpperCase() : '';
+        }
+
         if (prevVal === 'R') {
           map[day] = {
             type: 'RM_CONFLICT',
-            prevDay: day - 1,
-            message: `⚠️ Conflito de Escala (ICA 63-33, Tab. 30): Turno M às 06h00 imediatamente após serviço RISAER (24h) no dia ${day - 1}. É exigido intervalo mínimo de 24 horas de não trabalho.`
+            prevDay: prevDayLabel,
+            message: `⚠️ Conflito de Escala (ICA 63-33, Tab. 30): Turno ${val} imediatamente após serviço RISAER (24h) no dia ${prevDayLabel}. É exigido intervalo mínimo de 24 horas de não trabalho após serviço de 24h.`
           };
         }
       }
@@ -927,16 +1052,25 @@
         td.removeAttribute('title');
       }
     });
+
+    refreshHeaderCoverageIndicators();
   }
 
-  // Gerenciamento do Modal de Alerta de Conflito R -> M
-  function showConflictModal({ opName, day, prevDay, val, onConfirm, onCancel }) {
+  // Gerenciamento do Modal de Alerta de Conflito Pós-RISAER (ICA 63-33, Tab. 30)
+  function showConflictModal({ opName, day, prevDay, val, nextVal, onConfirm, onCancel }) {
     pendingConflictAction = { onConfirm, onCancel };
 
-    if (val === 'M') {
-      conflictModalMessage.innerHTML = `O operador <strong>${escapeHtml(opName)}</strong> está escalado em <strong>RISAER (24h)</strong> no dia <strong>${prevDay}</strong>.<br><br>A assunção do turno <strong>M (06h00 às 13h30)</strong> no dia <strong>${day}</strong> não cumpre o intervalo regulamentar mínimo de 24 horas de não trabalho pós-RISAER.`;
+    const shiftLabel = (code) => {
+      if (code === 'M') return 'M (06h00 às 13h30)';
+      if (code === 'T') return 'T (13h30 às 23h00)';
+      if (code === 'R') return 'RISAER (24h)';
+      return code;
+    };
+
+    if (val === 'R' && nextVal) {
+      conflictModalMessage.innerHTML = `O operador <strong>${escapeHtml(opName)}</strong> já possui turno <strong>${shiftLabel(nextVal)}</strong> no dia <strong>${escapeHtml(String(day))}</strong>.<br><br>Escalá-lo em <strong>RISAER (24h)</strong> no dia <strong>${escapeHtml(String(prevDay))}</strong> não permite o intervalo regulamentar mínimo de 24 horas de descanso pós-RISAER (ICA 63-33, Tab. 30).`;
     } else {
-      conflictModalMessage.innerHTML = `O operador <strong>${escapeHtml(opName)}</strong> já possui turno <strong>M (06h00 às 13h30)</strong> no dia <strong>${day}</strong>.<br><br>Escalá-lo em <strong>RISAER</strong> no dia <strong>${prevDay}</strong> não permite o intervalo regulamentar mínimo de 24 horas de descanso antes do início do turno M.`;
+      conflictModalMessage.innerHTML = `O operador <strong>${escapeHtml(opName)}</strong> está escalado em <strong>RISAER (24h)</strong> no dia <strong>${escapeHtml(String(prevDay))}</strong>.<br><br>A assunção do turno <strong>${shiftLabel(val)}</strong> no dia <strong>${escapeHtml(String(day))}</strong> não cumpre o intervalo regulamentar mínimo de 24 horas de não trabalho pós-RISAER (ICA 63-33, Tab. 30).`;
     }
 
     modalConflictWarning.classList.remove('hidden');
@@ -1234,12 +1368,17 @@
       const e10TotalDiasStr = String(stats.etapa10xTotalDias).padStart(2, '0');
       const e10UteisDiasStr = String(stats.etapa10xUteisDias).padStart(2, '0');
 
-      const isHoursAlert = (stats.totalHours < 127 || stats.totalHours > 188);
+      const isFebruary = state.month === 1;
+      const isHoursAlert = ((!isFebruary && stats.totalHours < 127) || stats.totalHours > 188);
       const hoursAlertClass = isHoursAlert ? ' total-hours-alert' : '';
 
       let totalTooltip = `Total: ${formatHours(stats.totalHours)}`;
       if (stats.totalHours < 127) {
-        totalTooltip += ` (Abaixo do mínimo regulamentar de 127h para H17 - ICA 63-33, Tab. 18-A)`;
+        if (isFebruary) {
+          totalTooltip += ` (Fevereiro: isento de complementação do mínimo de 127h - ICA 63-33, Tab. 18-A, Nota)`;
+        } else {
+          totalTooltip += ` (Abaixo do mínimo regulamentar de 127h para H17 - ICA 63-33, Tab. 18-A)`;
+        }
       } else if (stats.totalHours > 188) {
         totalTooltip += ` (Acima do limite máximo regulamentar de 188h - ICA 63-33, item 4.2.6.1)`;
       }
@@ -2321,17 +2460,28 @@ function openExtraHoursModal() {
 
     if (val === oldVal) return;
 
-    // Alerta de Conflito R -> M (ICA 63-33, Tab. 30: intervalo obrigatório de 24h de descanso)
+    // Alerta de Conflito pós-RISAER (ICA 63-33, Tab. 30: intervalo obrigatório de 24h de descanso após serviço de 24h)
     if (!skipConflictCheck) {
-      if (val === 'M') {
-        const prevVal = (op.shifts && op.shifts[day - 1]) ? op.shifts[day - 1] : '';
+      if (val === 'M' || val === 'T' || val === 'R') {
+        let prevVal = '';
+        let prevDayLabel = String(day - 1);
+        if (day === 1) {
+          const prevCtx = getPrevMonthOperatorContext(op);
+          if (prevCtx && prevCtx.lastDayShift) {
+            prevVal = prevCtx.lastDayShift;
+            prevDayLabel = `${prevCtx.lastDay}/${MONTH_NAMES[prevCtx.prevMonth]}`;
+          }
+        } else {
+          prevVal = (op.shifts && op.shifts[day - 1]) ? op.shifts[day - 1].trim().toUpperCase() : '';
+        }
+
         if (prevVal === 'R') {
           const opName = op.name || 'Operador';
           showConflictModal({
             opName,
             day,
-            prevDay: day - 1,
-            val: 'M',
+            prevDay: prevDayLabel,
+            val,
             onConfirm: () => {
               updateCellShift(opId, day, val, true);
             },
@@ -2343,15 +2493,17 @@ function openExtraHoursModal() {
           });
           return;
         }
-      } else if (val === 'R') {
-        const nextVal = (op.shifts && op.shifts[day + 1]) ? op.shifts[day + 1] : '';
-        if (nextVal === 'M') {
+      }
+      if (val === 'R') {
+        const nextVal = (op.shifts && op.shifts[day + 1]) ? op.shifts[day + 1].trim().toUpperCase() : '';
+        if (nextVal === 'M' || nextVal === 'T' || nextVal === 'R') {
           const opName = op.name || 'Operador';
           showConflictModal({
             opName,
             day: day + 1,
             prevDay: day,
             val: 'R',
+            nextVal,
             onConfirm: () => {
               updateCellShift(opId, day, val, true);
             },
@@ -2627,6 +2779,29 @@ function openExtraHoursModal() {
     }
 
     window.stepYear = stepYear;
+
+    function goToCurrentMonth() {
+      const now = new Date();
+      const targetYear = now.getFullYear();
+      const targetMonth = now.getMonth();
+
+      if (state.year === targetYear && state.month === targetMonth) {
+        return;
+      }
+
+      if (hasUnsavedChanges) {
+        if (!confirm('Você possui alterações não salvas neste mês. Deseja ir para o mês atual e descartá-las?')) {
+          return;
+        }
+      }
+
+      if (selectMonth) selectMonth.value = targetMonth;
+      if (inputYear) inputYear.value = targetYear;
+
+      loadMonthFromCloud(targetYear, targetMonth, state.sector);
+    }
+
+    window.goToCurrentMonth = goToCurrentMonth;
 
     const btnNextYear = document.getElementById('btn-next-year');
     const btnPrevYear = document.getElementById('btn-prev-year');
@@ -2915,12 +3090,28 @@ function openExtraHoursModal() {
             ? raw.observations.map(o => String(o || '').trim().slice(0, 300)).filter(Boolean)
             : [];
 
+          const sanitizedCustomHolidays = Array.isArray(raw.customHolidays)
+            ? raw.customHolidays.slice(0, 50).map(c => ({
+                id: String(c?.id || `custom-${parseInt(c?.day, 10) || 1}`).trim().slice(0, 50),
+                day: Math.max(1, Math.min(31, parseInt(c?.day, 10) || 1)),
+                month: cleanMonth,
+                name: String(c?.name || 'Feriado Local').trim().slice(0, 100),
+                type: String(c?.type || 'Personalizado / OM').trim().slice(0, 60)
+              }))
+            : [];
+
+          const sanitizedDisabledHolidays = Array.isArray(raw.disabledHolidays)
+            ? raw.disabledHolidays.slice(0, 50).map(d => typeof d === 'number' ? d : String(d || '').trim().slice(0, 50)).filter(Boolean)
+            : [];
+
           state = {
             year: cleanYear,
             month: cleanMonth,
             sector: cleanSector,
             operators: sanitizedOperators,
-            observations: sanitizedObservations
+            observations: sanitizedObservations,
+            customHolidays: sanitizedCustomHolidays,
+            disabledHolidays: sanitizedDisabledHolidays
           };
 
           saveState();

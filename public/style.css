@@ -299,6 +299,47 @@ body.dark-theme .btn-theme .icon-moon {
   text-align: center;
 }
 
+/* Botão de Atalho Rápido "Hoje" (Mês/Ano Corrente) */
+.btn-go-today {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 31px;
+  padding: 0 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+  color: var(--primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-go-today:hover:not(:disabled) {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.btn-go-today.is-current-period {
+  opacity: 0.55;
+  cursor: default;
+  color: var(--text-muted);
+}
+
+body.dark-theme .btn-go-today {
+  color: #60a5fa;
+}
+
+body.dark-theme .btn-go-today:hover:not(:disabled) {
+  background: var(--primary);
+  color: #ffffff;
+}
+
 /* Remove setinhas nativas dos navegadores no input number customizado */
 .custom-stepper-input::-webkit-outer-spin-button,
 .custom-stepper-input::-webkit-inner-spin-button {
@@ -1242,6 +1283,15 @@ body.dark-theme thead th.col-name {
   color: #fbbf24 !important;
   font-weight: 800 !important;
   box-shadow: inset 3px 0 0 0 var(--color-today-line), inset -3px 0 0 0 var(--color-today-line), inset 0 -3px 0 0 #fbbf24 !important;
+}
+
+/* Indicador discreto de dia com cobertura incompleta (sem turno M ou T escalado - ICA 63-33, item 4.2.2.1) */
+.cell-day-num.day-coverage-incomplete {
+  box-shadow: inset 0 -3px 0 0 #f59e0b !important;
+}
+
+.cell-day-num.col-today.day-coverage-incomplete {
+  box-shadow: inset 3px 0 0 0 var(--color-today-line), inset -3px 0 0 0 var(--color-today-line), inset 0 -3px 0 0 #f97316 !important;
 }
 
 /* ==========================================================================

@@ -80,6 +80,8 @@ export async function onRequestGet(context) {
 
     // 3. Se a escala do mês ainda não existir, cria a entrada inicial vazia
     let observations = [];
+    let customHolidays = [];
+    let disabledHolidays = [];
     if (!scheduleRecord) {
       await db
         .prepare('INSERT INTO monthly_schedules (id, year, month, sector, observations) VALUES (?, ?, ?, ?, ?)')
@@ -95,7 +97,14 @@ export async function onRequestGet(context) {
       await db.batch(batchArr);
     } else {
       try {
-        observations = JSON.parse(scheduleRecord.observations || '[]');
+        const parsedObs = JSON.parse(scheduleRecord.observations || '[]');
+        if (Array.isArray(parsedObs)) {
+          observations = parsedObs;
+        } else if (parsedObs && typeof parsedObs === 'object') {
+          observations = Array.isArray(parsedObs.observations) ? parsedObs.observations : [];
+          customHolidays = Array.isArray(parsedObs.customHolidays) ? parsedObs.customHolidays : [];
+          disabledHolidays = Array.isArray(parsedObs.disabledHolidays) ? parsedObs.disabledHolidays : [];
+        }
       } catch (e) {
         observations = [];
       }
@@ -138,7 +147,9 @@ export async function onRequestGet(context) {
         month,
         sector,
         operators,
-        observations
+        observations,
+        customHolidays,
+        disabledHolidays
       }
     }), {
       headers: {
@@ -206,7 +217,7 @@ export async function onRequestPost(context) {
     // VALIDAÇÃO RÍGIDA DE ENTRADAS (Mitigação Risco 02)
     // -------------------------------------------------------------------------
     const body = await request.json();
-    const { year, month, sector, operators, observations } = body;
+    const { year, month, sector, operators, observations, customHolidays, disabledHolidays } = body;
 
     const parsedYear = parseInt(year, 10);
     const parsedMonth = parseInt(month, 10);
@@ -226,10 +237,32 @@ export async function onRequestPost(context) {
     const cleanSector = sector.trim().slice(0, 50);
     const scheduleId = `${parsedYear}-${String(parsedMonth).padStart(2, '0')}_${cleanSector}`;
 
-    // Sanitiza e valida observações
+    // Sanitiza e valida observações e feriados personalizados do mês
     const safeObs = Array.isArray(observations)
       ? observations.map(o => String(o || '').trim().slice(0, 300)).filter(Boolean)
       : [];
+
+    const safeCustomHolidays = Array.isArray(customHolidays)
+      ? customHolidays.slice(0, 50).map(c => ({
+          id: String(c?.id || `custom-${parseInt(c?.day, 10) || 1}`).trim().slice(0, 50),
+          day: Math.max(1, Math.min(31, parseInt(c?.day, 10) || 1)),
+          month: parsedMonth,
+          name: String(c?.name || 'Feriado Local').trim().slice(0, 100),
+          type: String(c?.type || 'Personalizado / OM').trim().slice(0, 60)
+        }))
+      : [];
+
+    const safeDisabledHolidays = Array.isArray(disabledHolidays)
+      ? disabledHolidays.slice(0, 50).map(d => typeof d === 'number' ? d : String(d || '').trim().slice(0, 50)).filter(Boolean)
+      : [];
+
+    const serializedScheduleMeta = (safeCustomHolidays.length > 0 || safeDisabledHolidays.length > 0)
+      ? JSON.stringify({
+          observations: safeObs,
+          customHolidays: safeCustomHolidays,
+          disabledHolidays: safeDisabledHolidays
+        })
+      : JSON.stringify(safeObs);
 
     // 1. Atualiza ou insere o registro da escala
     await db
@@ -240,11 +273,13 @@ export async function onRequestPost(context) {
           observations = excluded.observations,
           updated_at = CURRENT_TIMESTAMP
       `)
-      .bind(scheduleId, parsedYear, parsedMonth, cleanSector, JSON.stringify(safeObs))
+      .bind(scheduleId, parsedYear, parsedMonth, cleanSector, serializedScheduleMeta)
       .run();
 
-    // 2. Atualiza operadores gerais e turnos deste mês em lote
-    const batchStatements = [];
+    // 2. Atualiza operadores gerais (desativando os removidos) e turnos deste mês em lote
+    const batchStatements = [
+      db.prepare('UPDATE operators SET active = 0 WHERE sector = ?').bind(cleanSector)
+    ];
 
     const stmtUpsertOp = db.prepare(`
       INSERT INTO operators (id, leg, name, sector, sort_order, active)

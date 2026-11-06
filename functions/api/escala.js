@@ -41,8 +41,9 @@ export async function onRequestGet(context) {
     }
 
     const url = new URL(request.url);
-    const year = parseInt(url.searchParams.get('year') || '2026', 10);
-    const month = parseInt(url.searchParams.get('month') || '9', 10); // 0-11
+    const now = new Date();
+    const year = parseInt(url.searchParams.get('year') || String(now.getFullYear()), 10);
+    const month = parseInt(url.searchParams.get('month') || String(now.getMonth()), 10); // 0-11
     const sector = (url.searchParams.get('sector') || 'EMS-SP').trim().slice(0, 50);
     const scheduleId = `${year}-${String(month).padStart(2, '0')}_${sector}`;
 

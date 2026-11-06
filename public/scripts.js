@@ -13,10 +13,11 @@
   const MONTH_NAMES = ['JAN', 'FEV', 'MAR', 'ABR', 'MAIO', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
   const WEEKDAY_NAMES = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
 
-  // Estrutura Padrão Inicial da Escala (Sem turnos hardcoded; populada conforme preenchimento)
+  // Estrutura Padrão Inicial da Escala (Inicia no ano e mês correntes; populada conforme preenchimento)
+  const initialDate = new Date();
   const DEFAULT_DATA = {
-    year: 2026,
-    month: 9, // Outubro (0-indexed)
+    year: initialDate.getFullYear(),
+    month: initialDate.getMonth(), // Mês corrente (0-indexed: 0=JAN, ..., 11=DEZ)
     sector: 'EMS-SP',
     operators: [],
     observations: [],
@@ -181,9 +182,12 @@
   // PERSISTÊNCIA & CARREGAMENTO DE DADOS (CLOUDFLARE D1 + LOCALSTORAGE)
   // =========================================================================
   function loadState() {
+    const curDate = new Date();
+    const curYear = curDate.getFullYear();
+    const curMonth = curDate.getMonth();
     try {
-      const key = getMonthStorageKey(DEFAULT_DATA.year, DEFAULT_DATA.month, DEFAULT_DATA.sector);
-      const saved = localStorage.getItem(key) || localStorage.getItem(STORAGE_KEY);
+      const key = getMonthStorageKey(curYear, curMonth, DEFAULT_DATA.sector);
+      const saved = localStorage.getItem(key);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.operators && Array.isArray(parsed.operators)) {
@@ -208,10 +212,41 @@
           return parsed;
         }
       }
+
+      // Se ainda não tem cache salvo deste mês corrente, tenta reaproveitar apenas o efetivo de operadores
+      // cadastrado em qualquer escala já salva localmente
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith('escala_') || k === STORAGE_KEY) && k !== 'escala_theme') {
+          try {
+            const candidate = JSON.parse(localStorage.getItem(k));
+            if (candidate && Array.isArray(candidate.operators) && candidate.operators.length > 0) {
+              const fresh = JSON.parse(JSON.stringify(DEFAULT_DATA));
+              fresh.year = curYear;
+              fresh.month = curMonth;
+              fresh.sector = candidate.sector || DEFAULT_DATA.sector;
+              fresh.operators = candidate.operators.map(op => ({
+                id: op.id,
+                leg: op.leg,
+                name: op.name,
+                shifts: {},
+                subShifts: {},
+                pimo: 0,
+                instrucaoMet: 0,
+                targetHours: op.targetHours || 0
+              }));
+              return fresh;
+            }
+          } catch (_) {}
+        }
+      }
     } catch (e) {
       console.warn('Erro ao carregar dados locais:', e);
     }
-    return JSON.parse(JSON.stringify(DEFAULT_DATA));
+    const fresh = JSON.parse(JSON.stringify(DEFAULT_DATA));
+    fresh.year = curYear;
+    fresh.month = curMonth;
+    return fresh;
   }
 
   function updateUndoButtonUI() {
@@ -1740,14 +1775,18 @@ function openExtraHoursModal() {
       }
       keysToRemove.forEach(k => localStorage.removeItem(k));
 
-      // Reseta estado em memória para o padrão limpo
+      // Reseta estado em memória para o padrão limpo no mês atual
+      const resetDate = new Date();
       state = JSON.parse(JSON.stringify(DEFAULT_DATA));
+      state.year = resetDate.getFullYear();
+      state.month = resetDate.getMonth();
       unsavedHistory = [];
       hasUnsavedChanges = false;
       updateSaveButtonUI('clean');
 
       if (loginInputPass) loginInputPass.value = '';
       clearRenderedDom();
+      syncHeaderControls();
       updateAuthViewState();
     }
   }
@@ -3481,6 +3520,7 @@ function openExtraHoursModal() {
   initTheme();
   setupSystemThemeDetection();
   setupEventListeners();
+  syncHeaderControls();
   updateSaveButtonUI('clean');
   updateAuthViewState();
   if (currentUser) {

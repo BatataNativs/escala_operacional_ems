@@ -209,6 +209,8 @@
           if (!Array.isArray(parsed.disabledHolidays)) {
             parsed.disabledHolidays = [];
           }
+          parsed.year = curYear;
+          parsed.month = curMonth;
           return parsed;
         }
       }
@@ -457,7 +459,38 @@
   }
 
   async function loadMonthFromCloud(year, month, sector) {
-    if (!currentUser || !currentUser.token) return;
+    year = parseInt(year, 10);
+    month = parseInt(month, 10);
+    if (!currentUser || !currentUser.token) {
+      // Modo offline / sem token: carrega direto do cache local ou inicializa mês
+      const key = getMonthStorageKey(year, month, sector);
+      const localData = localStorage.getItem(key);
+      if (localData) {
+        try {
+          state = JSON.parse(localData);
+          state.year = year;
+          state.month = month;
+          state.sector = sector;
+          if (!Array.isArray(state.customHolidays)) state.customHolidays = [];
+          if (!Array.isArray(state.disabledHolidays)) state.disabledHolidays = [];
+        } catch (e) {}
+      } else {
+        state.year = year;
+        state.month = month;
+        state.sector = sector;
+        state.operators.forEach(op => {
+          op.shifts = {};
+          op.subShifts = {};
+          op.pimo = 0;
+          op.instrucaoMet = 0;
+        });
+        state.observations = [];
+        state.customHolidays = [];
+        state.disabledHolidays = [];
+      }
+      renderAll();
+      return;
+    }
     triggerSaveIndicator('Carregando...', 'cloud-syncing');
     try {
       const url = `/api/escala?year=${year}&month=${month}&sector=${encodeURIComponent(sector)}`;
@@ -487,6 +520,9 @@
           if (!cloudHasShifts && localHasShifts) {
             // Preserva os dados locais preenchidos para não apagar a escala do usuário
             state = localState;
+            state.year = year;
+            state.month = month;
+            state.sector = sector;
             if (!Array.isArray(state.customHolidays)) state.customHolidays = [];
             if (!Array.isArray(state.disabledHolidays)) state.disabledHolidays = [];
             hasUnsavedChanges = true;
@@ -494,6 +530,9 @@
             triggerSaveIndicator('Recuperado do cache local', 'cloud-syncing');
           } else {
             state = json.data;
+            state.year = year;
+            state.month = month;
+            state.sector = sector;
             if (!Array.isArray(state.customHolidays)) {
               state.customHolidays = (localState && Array.isArray(localState.customHolidays)) ? localState.customHolidays : [];
             }
@@ -525,6 +564,9 @@
     if (localData) {
       try {
         state = JSON.parse(localData);
+        state.year = year;
+        state.month = month;
+        state.sector = sector;
         if (!Array.isArray(state.customHolidays)) state.customHolidays = [];
         if (!Array.isArray(state.disabledHolidays)) state.disabledHolidays = [];
       } catch (e) {}
@@ -769,18 +811,18 @@
   }
 
   function syncHeaderControls() {
-    selectMonth.value = state.month;
-    inputYear.value = state.year;
+    selectMonth.value = String(state.month);
+    inputYear.value = String(state.year);
     inputSector.value = state.sector || 'EMS-SP';
 
     const btnGoToday = document.getElementById('btn-go-today');
     if (btnGoToday) {
       const now = new Date();
-      const isCurrent = state.year === now.getFullYear() && state.month === now.getMonth();
+      const isCurrent = Number(state.year) === now.getFullYear() && Number(state.month) === now.getMonth();
       btnGoToday.classList.toggle('is-current-period', isCurrent);
       btnGoToday.title = isCurrent
-        ? 'Você já está visualizando o mês corrente'
-        : 'Voltar para o mês e ano atuais';
+        ? 'Você já está visualizando o mês e ano atuais'
+        : `Ir para o mês e ano atuais (${MONTH_NAMES[now.getMonth()]}/${now.getFullYear()})`;
     }
   }
 
@@ -2785,23 +2827,45 @@ function openExtraHoursModal() {
       const targetYear = now.getFullYear();
       const targetMonth = now.getMonth();
 
-      if (state.year === targetYear && state.month === targetMonth) {
+      const uiMonth = selectMonth ? parseInt(selectMonth.value, 10) : Number(state.month);
+      const uiYear = inputYear ? parseInt(inputYear.value, 10) : Number(state.year);
+
+      const isStateAtCurrent = Number(state.year) === targetYear && Number(state.month) === targetMonth;
+      const isUiAtCurrent = uiYear === targetYear && uiMonth === targetMonth;
+
+      if (isStateAtCurrent && isUiAtCurrent) {
+        // Já está exatamente no mês e ano atuais: rola até a coluna do dia de hoje
+        const todayHeader = thead ? thead.querySelector('th.col-today') : null;
+        if (todayHeader && typeof todayHeader.scrollIntoView === 'function') {
+          todayHeader.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
         return;
       }
 
       if (hasUnsavedChanges) {
-        if (!confirm('Você possui alterações não salvas neste mês. Deseja ir para o mês atual e descartá-las?')) {
+        if (!confirm('Você possui alterações não salvas neste período. Deseja ir para o mês e ano atuais e descartá-las?')) {
           return;
         }
       }
 
-      if (selectMonth) selectMonth.value = targetMonth;
-      if (inputYear) inputYear.value = targetYear;
+      state.year = targetYear;
+      state.month = targetMonth;
+      if (selectMonth) selectMonth.value = String(targetMonth);
+      if (inputYear) inputYear.value = String(targetYear);
 
+      renderAll();
       loadMonthFromCloud(targetYear, targetMonth, state.sector);
     }
 
     window.goToCurrentMonth = goToCurrentMonth;
+
+    const btnGoToday = document.getElementById('btn-go-today');
+    if (btnGoToday) {
+      btnGoToday.addEventListener('click', (e) => {
+        e.preventDefault();
+        goToCurrentMonth();
+      });
+    }
 
     const btnNextYear = document.getElementById('btn-next-year');
     const btnPrevYear = document.getElementById('btn-prev-year');

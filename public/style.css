@@ -747,22 +747,140 @@ body.dark-theme .stepper-arrow:hover {
   cursor: pointer;
 }
 
-.save-status {
-  font-size: 0.725rem;
-  color: var(--success);
-  font-weight: 600;
-  display: flex;
+/* ==========================================================================
+   INDICADOR DE NUVEM MODERNO COM CONTORNO DE STATUS E SNACKBAR FLUTUANTE
+   ========================================================================== */
+.cloud-status-wrapper {
+  position: relative;
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
 }
 
-.save-status::before {
-  content: "";
+.save-status.cloud-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 30px;
+  padding: 0;
+  border-radius: 9px;
+  background: var(--input-bg);
+  border: 1.5px solid rgba(16, 185, 129, 0.55);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.12), var(--shadow-sm);
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.save-status.cloud-badge::before {
+  display: none;
+}
+
+.save-status.cloud-badge .cloud-emoji {
+  font-size: 1.2rem;
+  line-height: 1;
   display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: var(--success);
+  filter: drop-shadow(0 1px 2px rgba(15, 23, 42, 0.15));
+  transition: transform 0.2s ease;
+}
+
+.save-status.cloud-badge:hover {
+  transform: translateY(-1px);
+}
+
+.save-status.cloud-badge:hover .cloud-emoji {
+  transform: scale(1.08);
+}
+
+/* Verde: Tudo OK e Sincronizado */
+.save-status.cloud-badge.state-ok {
+  border-color: #10b981;
+  box-shadow: 0 0 0 2.5px rgba(16, 185, 129, 0.18), var(--shadow-sm);
+}
+
+/* Amarelo / Âmbar: Precisa de Sync Manual ou Sincronizando */
+.save-status.cloud-badge.state-warn {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2.5px rgba(245, 158, 11, 0.22), var(--shadow-sm);
+}
+
+.save-status.cloud-badge.state-syncing .cloud-emoji {
+  animation: cloudFloatPulse 1.2s infinite ease-in-out;
+}
+
+/* Vermelho: Cloud com Problema ou Dessincronizada */
+.save-status.cloud-badge.state-err {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 2.5px rgba(239, 68, 68, 0.24), var(--shadow-sm);
+}
+
+@keyframes cloudFloatPulse {
+  0%, 100% { transform: translateY(0) scale(1); opacity: 1; }
+  50% { transform: translateY(-2px) scale(1.08); opacity: 0.78; }
+}
+
+/* Snackbar / Pill Flutuante de Status da Nuvem */
+.cloud-snackbar {
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%) translateX(6px);
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s ease;
+  z-index: 60;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.14);
+  border: 1px solid transparent;
+}
+
+.cloud-snackbar.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(-50%) translateX(0);
+}
+
+.cloud-snackbar.snack-ok {
+  background: #ecfdf5;
+  color: #065f46;
+  border-color: #6ee7b7;
+}
+
+.cloud-snackbar.snack-warn {
+  background: #fffbeb;
+  color: #92400e;
+  border-color: #fcd34d;
+}
+
+.cloud-snackbar.snack-err {
+  background: #fef2f2;
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+
+body.dark-theme .cloud-snackbar.snack-ok {
+  background: #064e3b;
+  color: #a7f3d0;
+  border-color: #059669;
+}
+
+body.dark-theme .cloud-snackbar.snack-warn {
+  background: #451a03;
+  color: #fde68a;
+  border-color: #d97706;
+}
+
+body.dark-theme .cloud-snackbar.snack-err {
+  background: #450a0a;
+  color: #fecaca;
+  border-color: #dc2626;
 }
 
 /* ==========================================================================

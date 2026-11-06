@@ -50,6 +50,8 @@
   const searchOperator = document.getElementById('search-operator');
   const btnClearSearch = document.getElementById('btn-clear-search');
   const saveStatus = document.getElementById('save-status');
+  const cloudSnackbar = document.getElementById('cloud-snackbar');
+  let cloudSnackbarTimeout = null;
 
   // Botão Explícito de Salvar Alterações na Nuvem & Desfazer
   const btnSaveCloud = document.getElementById('btn-save-cloud');
@@ -593,11 +595,60 @@
     renderAll();
   }
 
-  function triggerSaveIndicator(text = 'Salvo', className = '') {
-    if (saveStatus) {
-      saveStatus.textContent = text;
-      saveStatus.className = 'save-status ' + className;
-      saveStatus.style.opacity = '1';
+  function triggerSaveIndicator(text = 'Sincronizado em nuvem', className = '') {
+    if (!saveStatus) return;
+
+    const cleanText = String(text || '').replace(/^☁️\s*/, '').trim();
+    const lowerText = cleanText.toLowerCase();
+
+    let stateMode = 'ok'; // 'ok' (verde), 'warn' (amarelo), 'err' (vermelho)
+    let isSyncing = false;
+
+    if (
+      className === 'cloud-error' ||
+      lowerText.includes('erro') ||
+      lowerText.includes('falha') ||
+      lowerText.includes('negad') ||
+      lowerText.includes('expir') ||
+      lowerText === 'salvo local'
+    ) {
+      stateMode = 'err';
+    } else if (
+      className === 'cloud-syncing' ||
+      hasUnsavedChanges ||
+      lowerText.includes('pendente') ||
+      lowerText.includes('salvando') ||
+      lowerText.includes('carregando') ||
+      lowerText.includes('recuperado') ||
+      lowerText.includes('desfeito')
+    ) {
+      stateMode = 'warn';
+      if (lowerText.includes('salvando') || lowerText.includes('carregando')) {
+        isSyncing = true;
+      }
+    } else {
+      stateMode = 'ok';
+    }
+
+    // Mantém apenas o emoji de nuvem dentro do badge e atualiza o contorno de cor
+    saveStatus.className = `save-status cloud-badge state-${stateMode}${isSyncing ? ' state-syncing' : ''}`;
+    saveStatus.title = cleanText || 'Sincronizado em nuvem';
+
+    // Exibe a mensagem atual em formato de snackbar temporário ao lado da nuvem
+    if (cloudSnackbar && cleanText) {
+      if (cloudSnackbarTimeout) {
+        clearTimeout(cloudSnackbarTimeout);
+        cloudSnackbarTimeout = null;
+      }
+      cloudSnackbar.textContent = cleanText;
+      cloudSnackbar.className = `cloud-snackbar snack-${stateMode} show`;
+
+      // Se não estiver em carregamento contínuo, esconde suavemente após 2,8s deixando só a nuvem
+      if (!isSyncing) {
+        cloudSnackbarTimeout = setTimeout(() => {
+          cloudSnackbar.classList.remove('show');
+        }, 2800);
+      }
     }
   }
 
@@ -3705,6 +3756,17 @@ function openExtraHoursModal() {
       btnSaveCloud.addEventListener('click', () => {
         if (isSavingToCloud) return;
         syncWithCloud();
+      });
+    }
+
+    if (saveStatus) {
+      saveStatus.addEventListener('click', () => {
+        if (isSavingToCloud) return;
+        if (hasUnsavedChanges) {
+          syncWithCloud();
+        } else {
+          triggerSaveIndicator(saveStatus.title || 'Sincronizado em nuvem', 'cloud-synced');
+        }
       });
     }
 

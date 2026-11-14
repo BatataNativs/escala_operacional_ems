@@ -556,29 +556,12 @@
             } catch (e) {}
           }
 
-          // Também verifica o backup global (STORAGE_KEY) caso pertença a este mesmo mês/ano/setor
-          let globalBackup = null;
-          try {
-            const rawGlobal = localStorage.getItem(STORAGE_KEY);
-            if (rawGlobal) {
-              const parsedGlobal = JSON.parse(rawGlobal);
-              if (
-                parsedGlobal &&
-                Number(parsedGlobal.year) === year &&
-                Number(parsedGlobal.month) === month &&
-                (parsedGlobal.sector || 'EMS-SP') === (sector || 'EMS-SP')
-              ) {
-                globalBackup = parsedGlobal;
-              }
-            }
-          } catch (e) {}
-
           const canUseLocalRecovery = !isBlankInitPeriod(year, month) || (localState && localState.v2_independent);
           const cloudHasShifts = json.data.operators && json.data.operators.some(op => op.shifts && Object.keys(op.shifts).length > 0);
           const localHasShifts = canUseLocalRecovery && localState && localState.operators && localState.operators.some(op => op.shifts && Object.keys(op.shifts).length > 0);
 
           if (!cloudHasShifts && localHasShifts) {
-            // Preserva os dados locais preenchidos para não apagar a escala do usuário
+            // Preserva os dados locais preenchidos para não apagar a escala do usuário caso a nuvem esteja totalmente zerada
             state = localState;
             state.year = year;
             state.month = month;
@@ -595,47 +578,6 @@
             state.month = month;
             state.sector = sector;
             state.v2_independent = true;
-
-            let recoveredMissingLocalData = false;
-            const sources = [localState, globalBackup].filter(Boolean);
-            if (canUseLocalRecovery && sources.length > 0) {
-              // Se a nuvem veio com observações vazias, mas o cache local deste mês tinha observações, preserva
-              if ((!Array.isArray(state.observations) || state.observations.length === 0)) {
-                for (const src of sources) {
-                  if (Array.isArray(src.observations) && src.observations.length > 0) {
-                    state.observations = src.observations.slice();
-                    recoveredMissingLocalData = true;
-                    break;
-                  }
-                }
-              }
-
-              // Se algum operador na nuvem veio sem turnos, mas no cache local deste mês ele possuía turnos (por ID ou Nome), recupera
-              if (Array.isArray(state.operators)) {
-                state.operators.forEach(op => {
-                  const hasOpShifts = op.shifts && Object.keys(op.shifts).length > 0;
-                  if (!hasOpShifts) {
-                    const normName = String(op.name || '').trim().toLowerCase();
-                    for (const src of sources) {
-                      if (!Array.isArray(src.operators)) continue;
-                      const matchLocal = src.operators.find(lo =>
-                        (lo.id === op.id || (normName && String(lo.name || '').trim().toLowerCase() === normName)) &&
-                        lo.shifts && Object.keys(lo.shifts).length > 0
-                      );
-                      if (matchLocal) {
-                        op.shifts = { ...matchLocal.shifts };
-                        op.subShifts = { ...(matchLocal.subShifts || {}) };
-                        if (!op.pimo && matchLocal.pimo) op.pimo = matchLocal.pimo;
-                        if (!op.instrucaoMet && matchLocal.instrucaoMet) op.instrucaoMet = matchLocal.instrucaoMet;
-                        recoveredMissingLocalData = true;
-                        break;
-                      }
-                    }
-                  }
-                });
-              }
-            }
-
             if (!Array.isArray(state.customHolidays)) {
               state.customHolidays = (localState && Array.isArray(localState.customHolidays)) ? localState.customHolidays : [];
             }
@@ -645,16 +587,10 @@
             localStorage.setItem(key, JSON.stringify(state));
             baselineSavedJson = JSON.stringify(state);
             unsavedHistory = [];
-            if (recoveredMissingLocalData) {
-              hasUnsavedChanges = true;
-              updateSaveButtonUI('pending');
-              triggerSaveIndicator('Dados recuperados do cache local', 'cloud-syncing');
-            } else {
-              hasUnsavedChanges = false;
-              updateSaveButtonUI('clean');
-              triggerSaveIndicator('☁️ Nuvem sincronizada', 'cloud-synced');
-            }
+            hasUnsavedChanges = false;
+            updateSaveButtonUI('clean');
             updateUndoButtonUI();
+            triggerSaveIndicator('☁️ Nuvem sincronizada', 'cloud-synced');
           }
 
           state.lastChangeText = null;

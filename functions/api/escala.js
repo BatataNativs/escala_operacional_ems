@@ -342,14 +342,9 @@ export async function onRequestPost(context) {
       db.prepare('DELETE FROM operator_month_data WHERE schedule_id = ?').bind(scheduleId)
     ];
 
-    const stmtUpsertOp = db.prepare(`
-      INSERT INTO operators (id, leg, name, sector, sort_order, active)
+    const stmtInsertIgnoreOp = db.prepare(`
+      INSERT OR IGNORE INTO operators (id, leg, name, sector, sort_order, active)
       VALUES (?, ?, ?, ?, ?, 1)
-      ON CONFLICT(id) DO UPDATE SET
-        leg = excluded.leg,
-        name = excluded.name,
-        sort_order = excluded.sort_order,
-        active = 1
     `);
 
     const stmtUpsertMonthData = db.prepare(`
@@ -399,7 +394,7 @@ export async function onRequestPost(context) {
       const pimoVal = Math.max(0, Math.min(200, parseFloat(op.pimo || 0) || 0));
       const metVal = Math.max(0, Math.min(200, parseFloat(op.instrucaoMet || 0) || 0));
 
-      batchStatements.push(stmtUpsertOp.bind(cleanOpId, cleanLeg, cleanName, cleanSector, index + 1));
+      batchStatements.push(stmtInsertIgnoreOp.bind(cleanOpId, cleanLeg, cleanName, cleanSector, index + 1));
       batchStatements.push(stmtUpsertMonthData.bind(
         scheduleId,
         cleanOpId,

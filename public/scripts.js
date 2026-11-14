@@ -13,13 +13,44 @@
   const MONTH_NAMES = ['JAN', 'FEV', 'MAR', 'ABR', 'MAIO', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
   const WEEKDAY_NAMES = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
 
+  // Lista de operadores do seletor rápido (altere esta lista se precisar adicionar/remover nomes)
+  const PRESET_OPERATORS = [
+    '1S André',
+    '2S Natividade',
+    '1S Hiremar',
+    '2S Marisol',
+    '2S Amanda',
+    '2S Seiffert'
+  ];
+
+  // A partir de Janeiro de 2027 (pois Dezembro de 2026 já está preenchido),
+  // os meses seguintes iniciam vazios apenas com as legendas A, B, C, D e nomes em branco.
+  function isBlankInitPeriod(year, month) {
+    return Number(year) >= 2027;
+  }
+
+  function createDefaultBlankOperators(year, month) {
+    const y = year !== undefined ? year : new Date().getFullYear();
+    const m = month !== undefined ? month : new Date().getMonth();
+    return ['A', 'B', 'C', 'D'].map((leg, idx) => ({
+      id: `op-${y}-${String(m).padStart(2, '0')}-${leg.toLowerCase()}-${idx + 1}`,
+      leg,
+      name: '',
+      shifts: {},
+      subShifts: {},
+      pimo: 0,
+      instrucaoMet: 0
+    }));
+  }
+
   // Estrutura Padrão Inicial da Escala (Inicia no ano e mês correntes; populada conforme preenchimento)
   const initialDate = new Date();
   const DEFAULT_DATA = {
     year: initialDate.getFullYear(),
     month: initialDate.getMonth(), // Mês corrente (0-indexed: 0=JAN, ..., 11=DEZ)
     sector: 'EMS-SP',
-    operators: [],
+    v2_independent: true,
+    operators: createDefaultBlankOperators(initialDate.getFullYear(), initialDate.getMonth()),
     observations: [],
     customHolidays: [],
     disabledHolidays: []
@@ -29,6 +60,8 @@
   let state = loadState();
   let currentMode = 'edit'; // 'edit' ou 'view'
   let activeCell = null;
+  let activeOpCell = null;
+  let activeOpIdForPopover = null;
   let selectedOpId = null; // Operador selecionado cujo X de excluir fica visivel
 
   // Elementos do DOM
@@ -71,6 +104,7 @@
   const obsList = document.getElementById('obs-list');
   const btnAddObs = document.getElementById('btn-add-obs');
   const shiftPopover = document.getElementById('shift-popover');
+  const operatorPopover = document.getElementById('operator-popover');
 
   const statsTbody = document.getElementById('stats-tbody');
   const statsTfoot = document.getElementById('stats-tfoot');
@@ -192,56 +226,21 @@
       const saved = localStorage.getItem(key);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.operators && Array.isArray(parsed.operators)) {
-          // Se for o cache antigo com dados de exemplo da planilha ODS, limpa os turnos para manter o padrão novo
-          const isLegacySample = parsed.observations && parsed.observations.some(o => typeof o === 'string' && o.includes('1S Hiremar: 08T'));
-          if (isLegacySample) {
-            parsed.operators.forEach(op => {
-              op.shifts = {};
-              op.subShifts = {};
-              op.pimo = 0;
-              op.instrucaoMet = 0;
-            });
-            parsed.observations = [];
-            localStorage.setItem(key, JSON.stringify(parsed));
-          }
-          if (!Array.isArray(parsed.customHolidays)) {
-            parsed.customHolidays = [];
-          }
-          if (!Array.isArray(parsed.disabledHolidays)) {
-            parsed.disabledHolidays = [];
-          }
-          parsed.year = curYear;
-          parsed.month = curMonth;
-          return parsed;
-        }
-      }
-
-      // Se ainda não tem cache salvo deste mês corrente, tenta reaproveitar apenas o efetivo de operadores
-      // cadastrado em qualquer escala já salva localmente
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && (k.startsWith('escala_') || k === STORAGE_KEY) && k !== 'escala_theme') {
-          try {
-            const candidate = JSON.parse(localStorage.getItem(k));
-            if (candidate && Array.isArray(candidate.operators) && candidate.operators.length > 0) {
-              const fresh = JSON.parse(JSON.stringify(DEFAULT_DATA));
-              fresh.year = curYear;
-              fresh.month = curMonth;
-              fresh.sector = candidate.sector || DEFAULT_DATA.sector;
-              fresh.operators = candidate.operators.map(op => ({
-                id: op.id,
-                leg: op.leg,
-                name: op.name,
-                shifts: {},
-                subShifts: {},
-                pimo: 0,
-                instrucaoMet: 0,
-                targetHours: op.targetHours || 0
-              }));
-              return fresh;
+        if (parsed && parsed.operators && Array.isArray(parsed.operators)) {
+          // Para meses a partir de Janeiro de 2027, descarta cache antigo que não tenha sido salvo com a nova lógica independente
+          if (isBlankInitPeriod(curYear, curMonth) && !parsed.v2_independent) {
+            localStorage.removeItem(key);
+          } else {
+            if (!Array.isArray(parsed.customHolidays)) {
+              parsed.customHolidays = [];
             }
-          } catch (_) {}
+            if (!Array.isArray(parsed.disabledHolidays)) {
+              parsed.disabledHolidays = [];
+            }
+            parsed.year = curYear;
+            parsed.month = curMonth;
+            return parsed;
+          }
         }
       }
     } catch (e) {
@@ -250,6 +249,8 @@
     const fresh = JSON.parse(JSON.stringify(DEFAULT_DATA));
     fresh.year = curYear;
     fresh.month = curMonth;
+    fresh.v2_independent = true;
+    fresh.operators = createDefaultBlankOperators(curYear, curMonth);
     return fresh;
   }
 
@@ -369,6 +370,7 @@
 
   function saveState(markAsPending = true) {
     try {
+      state.v2_independent = true;
       const key = getMonthStorageKey(state.year, state.month, state.sector);
       localStorage.setItem(key, JSON.stringify(state));
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -463,32 +465,42 @@
   async function loadMonthFromCloud(year, month, sector) {
     year = parseInt(year, 10);
     month = parseInt(month, 10);
+    closeShiftPopover();
+    closeOperatorPopover();
+    selectedOpId = null;
+
     if (!currentUser || !currentUser.token) {
-      // Modo offline / sem token: carrega direto do cache local ou inicializa mês
+      // Modo offline / sem token: carrega direto do cache local ou inicializa mês com A, B, C, D em branco
       const key = getMonthStorageKey(year, month, sector);
       const localData = localStorage.getItem(key);
+      let loadedFromLocal = false;
       if (localData) {
         try {
-          state = JSON.parse(localData);
-          state.year = year;
-          state.month = month;
-          state.sector = sector;
-          if (!Array.isArray(state.customHolidays)) state.customHolidays = [];
-          if (!Array.isArray(state.disabledHolidays)) state.disabledHolidays = [];
+          const parsedLocal = JSON.parse(localData);
+          if (isBlankInitPeriod(year, month) && !parsedLocal.v2_independent) {
+            localStorage.removeItem(key);
+          } else if (parsedLocal && Array.isArray(parsedLocal.operators)) {
+            state = parsedLocal;
+            state.year = year;
+            state.month = month;
+            state.sector = sector;
+            if (!Array.isArray(state.customHolidays)) state.customHolidays = [];
+            if (!Array.isArray(state.disabledHolidays)) state.disabledHolidays = [];
+            loadedFromLocal = true;
+          }
         } catch (e) {}
-      } else {
-        state.year = year;
-        state.month = month;
-        state.sector = sector;
-        state.operators.forEach(op => {
-          op.shifts = {};
-          op.subShifts = {};
-          op.pimo = 0;
-          op.instrucaoMet = 0;
-        });
-        state.observations = [];
-        state.customHolidays = [];
-        state.disabledHolidays = [];
+      }
+      if (!loadedFromLocal) {
+        state = {
+          year,
+          month,
+          sector,
+          v2_independent: true,
+          operators: createDefaultBlankOperators(year, month),
+          observations: [],
+          customHolidays: [],
+          disabledHolidays: []
+        };
       }
       renderAll();
       return;
@@ -512,12 +524,19 @@
           const localSaved = localStorage.getItem(key);
           let localState = null;
           if (localSaved) {
-            try { localState = JSON.parse(localSaved); } catch (e) {}
+            try {
+              const candidateLocal = JSON.parse(localSaved);
+              if (isBlankInitPeriod(year, month) && !candidateLocal.v2_independent) {
+                localStorage.removeItem(key);
+              } else {
+                localState = candidateLocal;
+              }
+            } catch (e) {}
           }
 
-          // Verifica se a nuvem retornou turnos vazios, mas o navegador já possuía turnos salvos localmente
+          // Verifica se a nuvem retornou turnos vazios, mas o navegador já possuía turnos salvos localmente (na versão v2_independent)
           const cloudHasShifts = json.data.operators && json.data.operators.some(op => op.shifts && Object.keys(op.shifts).length > 0);
-          const localHasShifts = localState && localState.operators && localState.operators.some(op => op.shifts && Object.keys(op.shifts).length > 0);
+          const localHasShifts = localState && localState.v2_independent && localState.operators && localState.operators.some(op => op.shifts && Object.keys(op.shifts).length > 0);
 
           if (!cloudHasShifts && localHasShifts) {
             // Preserva os dados locais preenchidos para não apagar a escala do usuário
@@ -525,6 +544,7 @@
             state.year = year;
             state.month = month;
             state.sector = sector;
+            state.v2_independent = true;
             if (!Array.isArray(state.customHolidays)) state.customHolidays = [];
             if (!Array.isArray(state.disabledHolidays)) state.disabledHolidays = [];
             hasUnsavedChanges = true;
@@ -535,6 +555,7 @@
             state.year = year;
             state.month = month;
             state.sector = sector;
+            state.v2_independent = true;
             if (!Array.isArray(state.customHolidays)) {
               state.customHolidays = (localState && Array.isArray(localState.customHolidays)) ? localState.customHolidays : [];
             }
@@ -563,29 +584,35 @@
     // Fallback: se não conseguiu carregar da nuvem, tenta o cache local daquele mês
     const key = getMonthStorageKey(year, month, sector);
     const localData = localStorage.getItem(key);
+    let loadedFallback = false;
     if (localData) {
       try {
-        state = JSON.parse(localData);
-        state.year = year;
-        state.month = month;
-        state.sector = sector;
-        if (!Array.isArray(state.customHolidays)) state.customHolidays = [];
-        if (!Array.isArray(state.disabledHolidays)) state.disabledHolidays = [];
+        const parsedFallback = JSON.parse(localData);
+        if (isBlankInitPeriod(year, month) && !parsedFallback.v2_independent) {
+          localStorage.removeItem(key);
+        } else if (parsedFallback && Array.isArray(parsedFallback.operators)) {
+          state = parsedFallback;
+          state.year = year;
+          state.month = month;
+          state.sector = sector;
+          if (!Array.isArray(state.customHolidays)) state.customHolidays = [];
+          if (!Array.isArray(state.disabledHolidays)) state.disabledHolidays = [];
+          loadedFallback = true;
+        }
       } catch (e) {}
-    } else {
-      // Se não tem local daquele mês, mantém o efetivo de operadores e limpa turnos
-      state.year = year;
-      state.month = month;
-      state.sector = sector;
-      state.operators.forEach(op => {
-        op.shifts = {};
-        op.subShifts = {};
-        op.pimo = 0;
-        op.instrucaoMet = 0;
-      });
-      state.observations = [];
-      state.customHolidays = [];
-      state.disabledHolidays = [];
+    }
+    if (!loadedFallback) {
+      // Se não tem dados daquele mês, inicializa apenas com as 4 legendas A, B, C, D e nomes em branco
+      state = {
+        year,
+        month,
+        sector,
+        v2_independent: true,
+        operators: createDefaultBlankOperators(year, month),
+        observations: [],
+        customHolidays: [],
+        disabledHolidays: []
+      };
     }
     baselineSavedJson = JSON.stringify(state);
     unsavedHistory = [];
@@ -982,7 +1009,7 @@
 
   // Busca dados do operador no mês imediatamente anterior (se existir no cache local) para validar a virada de mês
   function getPrevMonthOperatorContext(op) {
-    if (!op) return null;
+    if (!op || !op.name || !op.name.trim()) return null;
     try {
       let prevMonth = state.month - 1;
       let prevYear = state.year;
@@ -995,7 +1022,8 @@
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       if (!parsed || !Array.isArray(parsed.operators)) return null;
-      const prevOp = parsed.operators.find(o => o.id === op.id || (o.name && op.name && o.name.trim().toLowerCase() === op.name.trim().toLowerCase()));
+      const targetName = op.name.trim().toLowerCase();
+      const prevOp = parsed.operators.find(o => o.name && o.name.trim().toLowerCase() === targetName);
       if (!prevOp || !prevOp.shifts) return null;
       const lastDay = getDaysInMonth(prevYear, prevMonth);
       const lastDayShift = prevOp.shifts[lastDay] ? prevOp.shifts[lastDay].trim().toUpperCase() : '';
@@ -1195,7 +1223,8 @@
     let html = '';
 
     state.operators.forEach((op, opIndex) => {
-      const isMatch = searchTerm ? op.name.toLowerCase().includes(searchTerm) : false;
+      const opNameStr = op.name || '';
+      const isMatch = searchTerm ? opNameStr.toLowerCase().includes(searchTerm) : false;
       const rowDimmed = searchTerm && !isMatch ? ' operator-dimmed' : '';
       const rowMatched = isMatch ? ' operator-matched' : '';
 
@@ -1228,17 +1257,17 @@
         </div>
       </td>`;
 
-      // Coluna Nome do Operador (1 clique seleciona • Duplo clique edita o nome)
-      html += `<td class="cell-op-name col-name" data-op-id="${safeOpId}" title="${currentMode === 'edit' ? '1 clique seleciona • Duplo clique edita o nome' : ''}">
+      // Coluna Nome do Operador (Clique abre seletor de operadores • Duplo clique digita/edita)
+      html += `<td class="cell-op-name col-name" data-op-id="${safeOpId}" title="${currentMode === 'edit' ? 'Clique para selecionar ou alterar operador • Duplo clique para digitar' : ''}">
         <div class="name-container">
           <div class="op-actions-group no-print">
-            <button class="btn-del-op" data-action="del-op" data-op-id="${safeOpId}" title="Excluir operador">&times;</button>
+            <button class="btn-del-op" data-action="del-op" data-op-id="${safeOpId}" title="Excluir linha de operador deste mês">&times;</button>
           </div>
           <span class="op-name-text" 
                 contenteditable="false" 
                 data-action="edit-name" 
                 data-op-id="${safeOpId}" 
-                spellcheck="false">${escapeHtml(op.name)}</span>
+                spellcheck="false">${escapeHtml(opNameStr)}</span>
         </div>
       </td>`;
 
@@ -1428,7 +1457,7 @@
       totalTeamPimo += stats.pimo;
       totalTeamInstrucaoMet += stats.instrucaoMet;
 
-      const isMatch = searchTerm ? op.name.toLowerCase().includes(searchTerm) : false;
+      const isMatch = searchTerm ? (op.name || '').toLowerCase().includes(searchTerm) : false;
       const rowDimmed = searchTerm && !isMatch ? ' operator-dimmed' : '';
       const rowMatched = isMatch ? ' operator-matched' : '';
 
@@ -1544,29 +1573,41 @@
   function addOperator() {
     if (currentMode !== 'edit') return;
     const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const nextLeg = state.operators.length < letters.length ? letters[state.operators.length] : `O${state.operators.length + 1}`;
+    const usedLegs = new Set(state.operators.map(o => (o.leg || '').trim().toUpperCase()));
+    let nextLeg = '';
+    for (let i = 0; i < letters.length; i++) {
+      if (!usedLegs.has(letters[i])) {
+        nextLeg = letters[i];
+        break;
+      }
+    }
+    if (!nextLeg) {
+      nextLeg = `O${state.operators.length + 1}`;
+    }
     
     const newOp = {
-      id: 'op-' + Date.now(),
+      id: `op-${state.year}-${String(state.month).padStart(2, '0')}-${Date.now()}`,
       leg: nextLeg,
-      name: `Novo Operador ${state.operators.length + 1}`,
+      name: '',
       shifts: {},
-      subShifts: {}
+      subShifts: {},
+      pimo: 0,
+      instrucaoMet: 0
     };
 
     pushUnsavedSnapshot();
     state.operators.push(newOp);
+    selectedOpId = newOp.id;
     saveState();
-    recordLastChange(`Operador [${newOp.name}] foi adicionado`);
+    recordLastChange(`Linha de operador [Leg. ${newOp.leg}] foi adicionada`);
     renderBody();
     renderStatsTable();
 
-    // Foca no nome do operador recém-adicionado
+    // Abre o seletor de operador para a nova linha adicionada
     setTimeout(() => {
-      const newEl = tbody.querySelector(`[data-op-id="${newOp.id}"] .op-name-text`);
-      if (newEl) {
-        newEl.focus();
-        selectElementContents(newEl);
+      const newCell = tbody.querySelector(`td.cell-op-name[data-op-id="${newOp.id}"]`);
+      if (newCell) {
+        openOperatorPopover(newCell, newOp.id);
       }
     }, 50);
   }
@@ -1574,15 +1615,17 @@
   function deleteOperator(opId) {
     const op = state.operators.find(o => o.id === opId);
     if (!op) return;
-    if (confirm(`Deseja remover o operador "${op.name}" da escala?`)) {
+    const label = (op.name && op.name.trim()) ? `"${op.name}" (Leg. ${op.leg})` : `da legenda "${op.leg}"`;
+    if (confirm(`Deseja remover o operador ${label} da escala deste mês?`)) {
       pushUnsavedSnapshot();
-      const opName = op.name;
+      const opDesc = (op.name && op.name.trim()) ? op.name : `Leg. ${op.leg}`;
       state.operators = state.operators.filter(o => o.id !== opId);
       if (selectedOpId === opId) {
         selectedOpId = null;
       }
+      closeOperatorPopover();
       saveState();
-      recordLastChange(`Operador [${opName}] foi excluído`);
+      recordLastChange(`Operador [${opDesc}] foi excluído deste mês`);
       renderBody();
       renderStatsTable();
     }
@@ -2702,6 +2745,7 @@ function openExtraHoursModal() {
 
   function openShiftPopover(cell) {
     if (currentMode !== 'edit') return;
+    closeOperatorPopover();
     if (shiftPopover.style.display !== 'none' && activeCell === cell) {
       closeShiftPopover();
       return;
@@ -2717,6 +2761,53 @@ function openExtraHoursModal() {
   function closeShiftPopover() {
     shiftPopover.style.display = 'none';
     activeCell = null;
+  }
+
+  function openOperatorPopover(cell, opId) {
+    if (currentMode !== 'edit' || !operatorPopover || !cell || !opId) return;
+    closeShiftPopover();
+    if (operatorPopover.style.display !== 'none' && activeOpIdForPopover === opId) {
+      closeOperatorPopover();
+      return;
+    }
+    activeOpCell = cell;
+    activeOpIdForPopover = opId;
+
+    const op = state.operators.find(o => o.id === opId);
+    const currentName = (op && op.name) ? op.name.trim() : '';
+    const legLabel = (op && op.leg) ? op.leg : '';
+
+    let html = `<div class="op-pop-header">
+      <span>Operadores (Leg. ${escapeHtml(legLabel)})</span>
+    </div>`;
+
+    PRESET_OPERATORS.forEach(presetName => {
+      const isCurrent = currentName.toLowerCase() === presetName.toLowerCase();
+      html += `<button type="button" class="op-pop-btn${isCurrent ? ' is-current-op' : ''}" data-op-select="${escapeHtml(presetName)}">
+        <span>${escapeHtml(presetName)}</span>
+        <span class="op-pop-check">✔️</span>
+      </button>`;
+    });
+
+    html += `<div class="op-pop-footer">
+      <button type="button" class="op-pop-action-btn" data-op-action="manual-edit" title="Digitar ou editar nome manualmente">✏️ Digitar</button>
+      ${currentName ? '<button type="button" class="op-pop-action-btn clear-op-btn" data-op-action="clear-name" title="Deixar o campo de nome em branco">Limpar</button>' : ''}
+    </div>`;
+
+    operatorPopover.innerHTML = html;
+    operatorPopover.style.display = 'flex';
+
+    const rect = cell.getBoundingClientRect();
+    operatorPopover.style.top = `${window.scrollY + rect.bottom + 4}px`;
+    operatorPopover.style.left = `${Math.max(8, window.scrollX + rect.left)}px`;
+  }
+
+  function closeOperatorPopover() {
+    if (operatorPopover) {
+      operatorPopover.style.display = 'none';
+    }
+    activeOpCell = null;
+    activeOpIdForPopover = null;
   }
 
   // Navegação por teclado nas células da tabela
@@ -2997,6 +3088,7 @@ function openExtraHoursModal() {
       btnAddOperator.title = 'Mude para o modo de Edição para habilitar adição de operador';
       if (btnAddObs) btnAddObs.title = 'Mude para o modo de Edição para habilitar adição de notas';
       closeShiftPopover();
+      closeOperatorPopover();
       renderAll();
     });
 
@@ -3020,6 +3112,7 @@ function openExtraHoursModal() {
         renderBody();
       }
       closeShiftPopover();
+      closeOperatorPopover();
       window.print();
     }
     window.triggerPrint = triggerPrint;
@@ -3041,8 +3134,16 @@ function openExtraHoursModal() {
       if (!shiftPopover.contains(e.target) && !e.target.closest('.cell-shift')) {
         closeShiftPopover();
       }
-      // Se clicou fora da célula do nome, da legenda e dos botões de ação:
-      if (!e.target.closest('.cell-op-name') && !e.target.closest('.cell-leg-val') && !e.target.closest('.btn-del-op')) {
+      if (operatorPopover && !operatorPopover.contains(e.target) && !e.target.closest('.cell-op-name')) {
+        closeOperatorPopover();
+      }
+      // Se clicou fora da célula do nome, da legenda, do seletor de operador e dos botões de ação:
+      if (
+        !e.target.closest('.cell-op-name') &&
+        !e.target.closest('.cell-leg-val') &&
+        !e.target.closest('.btn-del-op') &&
+        (!operatorPopover || !operatorPopover.contains(e.target))
+      ) {
         // Fecha qualquer caixa de edição de texto que esteja aberta
         closeOpNameEditing();
 
@@ -3106,9 +3207,12 @@ function openExtraHoursModal() {
       }
 
       if (e.key === 'Escape' || e.key === 'Enter') {
-        // Fecha popover de turno se estiver aberto
+        // Fecha popover de turno ou de operador se estiver aberto
         if (shiftPopover.style.display !== 'none') {
           closeShiftPopover();
+        }
+        if (operatorPopover && operatorPopover.style.display !== 'none') {
+          closeOperatorPopover();
         }
         // Se houver operador selecionado e não estiver com o foco em campo de texto
         if (selectedOpId && !e.target.classList.contains('op-name-text') && !e.target.classList.contains('leg-text')) {
@@ -3283,6 +3387,7 @@ function openExtraHoursModal() {
       const opId = span.getAttribute('data-op-id');
       if (!opId) return;
 
+      closeOperatorPopover();
       selectedOpId = opId;
       tbody.querySelectorAll('.row-operator').forEach(tr => {
         if (tr.getAttribute('data-op-id') === opId) {
@@ -3307,7 +3412,7 @@ function openExtraHoursModal() {
       } catch (_) {}
     }
 
-    // Duplo clique no Desktop para abrir edição de nome
+    // Duplo clique no Desktop para abrir edição manual de nome
     tbody.addEventListener('dblclick', (e) => {
       if (currentMode !== 'edit') return;
       const cellName = e.target.closest('.cell-op-name');
@@ -3327,6 +3432,7 @@ function openExtraHoursModal() {
       // Botão de mover operador para cima (seta na legenda)
       const btnUp = e.target.closest('[data-action="move-up"]');
       if (btnUp && !btnUp.disabled) {
+        closeOperatorPopover();
         moveOperator(btnUp.getAttribute('data-op-id'), -1);
         return;
       }
@@ -3334,6 +3440,7 @@ function openExtraHoursModal() {
       // Botão de mover operador para baixo (seta na legenda)
       const btnDown = e.target.closest('[data-action="move-down"]');
       if (btnDown && !btnDown.disabled) {
+        closeOperatorPopover();
         moveOperator(btnDown.getAttribute('data-op-id'), 1);
         return;
       }
@@ -3351,14 +3458,14 @@ function openExtraHoursModal() {
         const opId = cellName.getAttribute('data-op-id');
         const span = cellName.querySelector('.op-name-text');
 
-        // Se já está em modo de edição, permite posicionar o cursor normalmente
+        // Se já está em modo de edição manual, permite posicionar o cursor normalmente
         if (span && span.contentEditable === 'true') {
           return;
         }
 
         const now = Date.now();
         // Detecção de Duplo Toque / Duplo Clique (funciona em Desktop, Mobile e Tablet)
-        if (lastOpTapId === opId && (now - lastOpTapTime) < 380) {
+        if (lastOpTapId === opId && (now - lastOpTapTime) < 350) {
           lastOpTapTime = 0;
           lastOpTapId = null;
           if (span) {
@@ -3367,7 +3474,7 @@ function openExtraHoursModal() {
           return;
         }
 
-        // 1 Único Clique: apenas seleciona a célula (exibe X vermelho e setas na legenda)
+        // 1 Clique: seleciona a linha (exibe X vermelho e setas na legenda) e abre o seletor de operadores
         lastOpTapTime = now;
         lastOpTapId = opId;
         selectedOpId = opId;
@@ -3379,12 +3486,15 @@ function openExtraHoursModal() {
             tr.classList.remove('op-selected');
           }
         });
+
+        openOperatorPopover(cellName, opId);
         return;
       }
 
       // Clique na célula da legenda também seleciona o operador
       const cellLeg = e.target.closest('.cell-leg-val');
       if (cellLeg && currentMode === 'edit') {
+        closeOperatorPopover();
         const opId = cellLeg.getAttribute('data-op-id');
         if (opId && selectedOpId !== opId) {
           selectedOpId = opId;
@@ -3509,7 +3619,7 @@ function openExtraHoursModal() {
       }
     }, true);
 
-    // 10. Popover de Seleção de Turno
+    // 10. Popover de Seleção de Turno e Popover de Seleção de Operador
     shiftPopover.addEventListener('click', (e) => {
       const btn = e.target.closest('.shift-pop-btn');
       if (!btn || !activeCell) return;
@@ -3520,6 +3630,51 @@ function openExtraHoursModal() {
       updateCellShift(opId, day, val);
       closeShiftPopover();
     });
+
+    if (operatorPopover) {
+      operatorPopover.addEventListener('click', (e) => {
+        const selectBtn = e.target.closest('[data-op-select]');
+        if (selectBtn && activeOpIdForPopover) {
+          const chosenName = selectBtn.getAttribute('data-op-select');
+          const opId = activeOpIdForPopover;
+          const op = state.operators.find(o => o.id === opId);
+          if (op && op.name !== chosenName) {
+            pushUnsavedSnapshot();
+            op.name = chosenName;
+            saveState();
+            recordLastChange(`Operador [${chosenName}] definido na legenda [${op.leg}]`);
+            renderBody();
+            renderStatsTable();
+          }
+          closeOperatorPopover();
+          return;
+        }
+
+        const actionBtn = e.target.closest('[data-op-action]');
+        if (actionBtn && activeOpIdForPopover) {
+          const act = actionBtn.getAttribute('data-op-action');
+          const opId = activeOpIdForPopover;
+          if (act === 'manual-edit') {
+            const span = tbody.querySelector(`.cell-op-name[data-op-id="${opId}"] .op-name-text`);
+            closeOperatorPopover();
+            if (span) {
+              enableOpNameEditing(span);
+            }
+          } else if (act === 'clear-name') {
+            const op = state.operators.find(o => o.id === opId);
+            if (op && op.name) {
+              pushUnsavedSnapshot();
+              op.name = '';
+              saveState();
+              recordLastChange(`Nome do operador na legenda [${op.leg}] foi limpo`);
+              renderBody();
+              renderStatsTable();
+            }
+            closeOperatorPopover();
+          }
+        }
+      });
+    }
 
     // 11. Seção de Observações
     obsList.addEventListener('blur', (e) => {

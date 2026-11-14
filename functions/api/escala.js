@@ -47,55 +47,29 @@ export async function onRequestGet(context) {
     const sector = (url.searchParams.get('sector') || 'EMS-SP').trim().slice(0, 50);
     const scheduleId = `${year}-${String(month).padStart(2, '0')}_${sector}`;
 
+    const createBlankDefaultOperators = (y, m) => ['A', 'B', 'C', 'D'].map((leg, idx) => ({
+      id: `op-${y}-${String(m).padStart(2, '0')}-${leg.toLowerCase()}-${idx + 1}`,
+      leg,
+      name: '',
+      shifts: {},
+      subShifts: {},
+      pimo: 0,
+      instrucaoMet: 0
+    }));
+
     // 1. Tenta buscar a escala do mês específico
     const scheduleRecord = await db
       .prepare('SELECT * FROM monthly_schedules WHERE id = ?')
       .bind(scheduleId)
       .first();
 
-    // 2. Busca o efetivo de operadores cadastrados
-    let { results: dbOperators } = await db
-      .prepare('SELECT * FROM operators WHERE sector = ? AND active = 1 ORDER BY sort_order ASC, leg ASC')
-      .bind(sector)
-      .all();
-
-    // Se o banco estiver totalmente novo (primeiro acesso), popula com o efetivo padrão inicial
-    if (!dbOperators || dbOperators.length === 0) {
-      const defaultOperators = [
-        { id: 'op-1', leg: 'A', name: 'SO J. Nunes', sort_order: 1 },
-        { id: 'op-2', leg: 'B', name: '2S Natividade', sort_order: 2 },
-        { id: 'op-3', leg: 'C', name: '1S André', sort_order: 3 },
-        { id: 'op-4', leg: 'D', name: 'Operador D.O', sort_order: 4 }
-      ];
-
-      const stmtOp = db.prepare('INSERT INTO operators (id, leg, name, sector, sort_order) VALUES (?, ?, ?, ?, ?)');
-      await db.batch(defaultOperators.map(o => stmtOp.bind(o.id, o.leg, o.name, sector, o.sort_order)));
-
-      const refreshed = await db
-        .prepare('SELECT * FROM operators WHERE sector = ? AND active = 1 ORDER BY sort_order ASC')
-        .bind(sector)
-        .all();
-      dbOperators = refreshed.results;
-    }
-
-    // 3. Se a escala do mês ainda não existir, cria a entrada inicial vazia
     let observations = [];
     let customHolidays = [];
     let disabledHolidays = [];
-    if (!scheduleRecord) {
-      await db
-        .prepare('INSERT INTO monthly_schedules (id, year, month, sector, observations) VALUES (?, ?, ?, ?, ?)')
-        .bind(scheduleId, year, month, sector, '[]')
-        .run();
+    let isV2Independent = false;
+    let savedMonthOperators = null;
 
-      observations = [];
-
-      const stmtInitial = db.prepare('INSERT INTO operator_month_data (schedule_id, operator_id, shifts, sub_shifts, pimo, instrucao_met) VALUES (?, ?, ?, ?, ?, ?)');
-      const batchArr = dbOperators.map(o => {
-        return stmtInitial.bind(scheduleId, o.id, '{}', '{}', 0, 0);
-      });
-      await db.batch(batchArr);
-    } else {
+    if (scheduleRecord) {
       try {
         const parsedObs = JSON.parse(scheduleRecord.observations || '[]');
         if (Array.isArray(parsedObs)) {
@@ -104,13 +78,17 @@ export async function onRequestGet(context) {
           observations = Array.isArray(parsedObs.observations) ? parsedObs.observations : [];
           customHolidays = Array.isArray(parsedObs.customHolidays) ? parsedObs.customHolidays : [];
           disabledHolidays = Array.isArray(parsedObs.disabledHolidays) ? parsedObs.disabledHolidays : [];
+          isV2Independent = Boolean(parsedObs.v2_independent);
+          if (Array.isArray(parsedObs.monthOperators)) {
+            savedMonthOperators = parsedObs.monthOperators;
+          }
         }
       } catch (e) {
         observations = [];
       }
     }
 
-    // 4. Busca os dados de turnos dos operadores para este mês
+    // 2. Busca os dados de turnos salvos para este mês específico
     const { results: monthData } = await db
       .prepare('SELECT * FROM operator_month_data WHERE schedule_id = ?')
       .bind(scheduleId)
@@ -121,24 +99,99 @@ export async function onRequestGet(context) {
       monthDataMap[md.operator_id] = md;
     });
 
-    // 5. Monta o objeto dos operadores no formato esperado pelo frontend
-    const operators = dbOperators.map(op => {
-      const data = monthDataMap[op.id] || {};
-      let shifts = {};
-      let subShifts = {};
-      try { shifts = JSON.parse(data.shifts || '{}'); } catch (e) {}
-      try { subShifts = JSON.parse(data.sub_shifts || '{}'); } catch (e) {}
+    let operators = [];
 
-      return {
-        id: op.id,
-        leg: op.leg,
-        name: op.name,
-        shifts: shifts,
-        subShifts: subShifts,
-        pimo: data.pimo || 0,
-        instrucaoMet: data.instrucao_met || 0
-      };
-    });
+    // Caso 1: Mês já salvo com lista de operadores independente do mês (v2_independent)
+    if (scheduleRecord && isV2Independent && Array.isArray(savedMonthOperators)) {
+      operators = savedMonthOperators.map(op => {
+        const data = monthDataMap[op.id] || {};
+        let shifts = {};
+        let subShifts = {};
+        try { shifts = JSON.parse(data.shifts || '{}'); } catch (e) {}
+        try { subShifts = JSON.parse(data.sub_shifts || '{}'); } catch (e) {}
+
+        return {
+          id: op.id,
+          leg: op.leg,
+          name: op.name || '',
+          shifts,
+          subShifts,
+          pimo: data.pimo || 0,
+          instrucaoMet: data.instrucao_met || 0
+        };
+      });
+    } else if (year >= 2027) {
+      // Caso 2: A partir de Janeiro de 2027, meses ainda não salvos com a nova lógica
+      // iniciam vazios apenas com as legendas A, B, C, D e os campos de nome em branco
+      operators = createBlankDefaultOperators(year, month);
+      observations = [];
+      customHolidays = [];
+      disabledHolidays = [];
+      isV2Independent = true;
+    } else {
+      // Caso 3: Meses até Dezembro de 2026 (escalas anteriores já preenchidas)
+      // Reconstrói os operadores vinculados a este mês em operator_month_data sem filtrar por active=1,
+      // garantindo que operadores excluídos em outros meses nunca sumam de escalas anteriores.
+      if (scheduleRecord && monthData && monthData.length > 0) {
+        const { results: joinedOps } = await db
+          .prepare(`
+            SELECT o.id, o.leg, o.name, o.sort_order,
+                   md.shifts, md.sub_shifts, md.pimo, md.instrucao_met
+            FROM operator_month_data md
+            INNER JOIN operators o ON o.id = md.operator_id
+            WHERE md.schedule_id = ?
+            ORDER BY o.sort_order ASC, o.leg ASC
+          `)
+          .bind(scheduleId)
+          .all();
+
+        if (joinedOps && joinedOps.length > 0) {
+          operators = joinedOps.map(row => {
+            let shifts = {};
+            let subShifts = {};
+            try { shifts = JSON.parse(row.shifts || '{}'); } catch (e) {}
+            try { subShifts = JSON.parse(row.sub_shifts || '{}'); } catch (e) {}
+            return {
+              id: row.id,
+              leg: row.leg,
+              name: row.name || '',
+              shifts,
+              subShifts,
+              pimo: row.pimo || 0,
+              instrucaoMet: row.instrucao_met || 0
+            };
+          });
+        }
+      }
+
+      if (operators.length === 0) {
+        const { results: dbOperators } = await db
+          .prepare('SELECT * FROM operators WHERE sector = ? ORDER BY sort_order ASC, leg ASC')
+          .bind(sector)
+          .all();
+
+        if (dbOperators && dbOperators.length > 0) {
+          operators = dbOperators.map(op => {
+            const data = monthDataMap[op.id] || {};
+            let shifts = {};
+            let subShifts = {};
+            try { shifts = JSON.parse(data.shifts || '{}'); } catch (e) {}
+            try { subShifts = JSON.parse(data.sub_shifts || '{}'); } catch (e) {}
+            return {
+              id: op.id,
+              leg: op.leg,
+              name: op.name || '',
+              shifts,
+              subShifts,
+              pimo: data.pimo || 0,
+              instrucaoMet: data.instrucao_met || 0
+            };
+          });
+        } else {
+          operators = createBlankDefaultOperators(year, month);
+        }
+      }
+    }
 
     return new Response(JSON.stringify({
       success: true,
@@ -146,6 +199,7 @@ export async function onRequestGet(context) {
         year,
         month,
         sector,
+        v2_independent: isV2Independent,
         operators,
         observations,
         customHolidays,
@@ -256,39 +310,16 @@ export async function onRequestPost(context) {
       ? disabledHolidays.slice(0, 50).map(d => typeof d === 'number' ? d : String(d || '').trim().slice(0, 50)).filter(Boolean)
       : [];
 
-    const serializedScheduleMeta = (safeCustomHolidays.length > 0 || safeDisabledHolidays.length > 0)
-      ? JSON.stringify({
-          observations: safeObs,
-          customHolidays: safeCustomHolidays,
-          disabledHolidays: safeDisabledHolidays
-        })
-      : JSON.stringify(safeObs);
-
-    // 1. Atualiza ou insere o registro da escala
-    await db
-      .prepare(`
-        INSERT INTO monthly_schedules (id, year, month, sector, observations, updated_at)
-        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        ON CONFLICT(id) DO UPDATE SET
-          observations = excluded.observations,
-          updated_at = CURRENT_TIMESTAMP
-      `)
-      .bind(scheduleId, parsedYear, parsedMonth, cleanSector, serializedScheduleMeta)
-      .run();
-
-    // 2. Atualiza operadores gerais (desativando os removidos) e turnos deste mês em lote
+    // 2. Processa os operadores e turnos deste mês de forma 100% independente de outros meses
+    const cleanMonthOperators = [];
     const batchStatements = [
-      db.prepare('UPDATE operators SET active = 0 WHERE sector = ?').bind(cleanSector)
+      // Remove apenas os dados de turnos anteriores deste próprio mês (scheduleId), sem afetar outros meses
+      db.prepare('DELETE FROM operator_month_data WHERE schedule_id = ?').bind(scheduleId)
     ];
 
-    const stmtUpsertOp = db.prepare(`
-      INSERT INTO operators (id, leg, name, sector, sort_order, active)
+    const stmtInsertIgnoreOp = db.prepare(`
+      INSERT OR IGNORE INTO operators (id, leg, name, sector, sort_order, active)
       VALUES (?, ?, ?, ?, ?, 1)
-      ON CONFLICT(id) DO UPDATE SET
-        leg = excluded.leg,
-        name = excluded.name,
-        sort_order = excluded.sort_order,
-        active = 1
     `);
 
     const stmtUpsertMonthData = db.prepare(`
@@ -306,6 +337,13 @@ export async function onRequestPost(context) {
       const cleanOpId = String(op.id).trim().slice(0, 50);
       const cleanLeg = String(op.leg || '').trim().slice(0, 10);
       const cleanName = String(op.name || '').trim().slice(0, 100);
+
+      cleanMonthOperators.push({
+        id: cleanOpId,
+        leg: cleanLeg,
+        name: cleanName,
+        sort_order: index + 1
+      });
 
       // Validação de formato dos turnos (apenas números como chave, strings curtas como valor)
       const cleanShifts = {};
@@ -331,7 +369,7 @@ export async function onRequestPost(context) {
       const pimoVal = Math.max(0, Math.min(200, parseFloat(op.pimo || 0) || 0));
       const metVal = Math.max(0, Math.min(200, parseFloat(op.instrucaoMet || 0) || 0));
 
-      batchStatements.push(stmtUpsertOp.bind(cleanOpId, cleanLeg, cleanName, cleanSector, index + 1));
+      batchStatements.push(stmtInsertIgnoreOp.bind(cleanOpId, cleanLeg, cleanName, cleanSector, index + 1));
       batchStatements.push(stmtUpsertMonthData.bind(
         scheduleId,
         cleanOpId,
@@ -341,6 +379,26 @@ export async function onRequestPost(context) {
         metVal
       ));
     });
+
+    const serializedScheduleMeta = JSON.stringify({
+      v2_independent: true,
+      observations: safeObs,
+      customHolidays: safeCustomHolidays,
+      disabledHolidays: safeDisabledHolidays,
+      monthOperators: cleanMonthOperators
+    });
+
+    // 1. Atualiza ou insere o registro da escala deste mês com sua lista própria de operadores
+    await db
+      .prepare(`
+        INSERT INTO monthly_schedules (id, year, month, sector, observations, updated_at)
+        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(id) DO UPDATE SET
+          observations = excluded.observations,
+          updated_at = CURRENT_TIMESTAMP
+      `)
+      .bind(scheduleId, parsedYear, parsedMonth, cleanSector, serializedScheduleMeta)
+      .run();
 
     if (batchStatements.length > 0) {
       await db.batch(batchStatements);

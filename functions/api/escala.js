@@ -88,15 +88,34 @@ export async function onRequestGet(context) {
       }
     }
 
-    // 2. Busca os dados de turnos salvos para este mês específico
+    // 2. Busca os dados de turnos salvos para este mês específico (com join em operators para recuperar por nome se o ID mudou)
     const { results: monthData } = await db
-      .prepare('SELECT * FROM operator_month_data WHERE schedule_id = ?')
+      .prepare(`
+        SELECT md.operator_id, md.shifts, md.sub_shifts, md.pimo, md.instrucao_met,
+               o.leg AS op_leg, o.name AS op_name, o.sort_order AS op_sort_order
+        FROM operator_month_data md
+        LEFT JOIN operators o ON o.id = md.operator_id
+        WHERE md.schedule_id = ?
+        ORDER BY o.sort_order ASC, o.leg ASC
+      `)
       .bind(scheduleId)
       .all();
 
     const monthDataMap = {};
+    const monthDataByName = {};
     (monthData || []).forEach(md => {
       monthDataMap[md.operator_id] = md;
+      const normName = String(md.op_name || '').trim().toLowerCase();
+      if (normName) {
+        let hasShifts = false;
+        try {
+          const parsed = JSON.parse(md.shifts || '{}');
+          hasShifts = parsed && Object.keys(parsed).length > 0;
+        } catch (e) {}
+        if (!monthDataByName[normName] || hasShifts) {
+          monthDataByName[normName] = md;
+        }
+      }
     });
 
     let operators = [];
@@ -104,11 +123,21 @@ export async function onRequestGet(context) {
     // Caso 1: Mês já salvo com lista de operadores independente do mês (v2_independent)
     if (scheduleRecord && isV2Independent && Array.isArray(savedMonthOperators)) {
       operators = savedMonthOperators.map(op => {
-        const data = monthDataMap[op.id] || {};
+        let data = monthDataMap[op.id];
         let shifts = {};
         let subShifts = {};
-        try { shifts = JSON.parse(data.shifts || '{}'); } catch (e) {}
-        try { subShifts = JSON.parse(data.sub_shifts || '{}'); } catch (e) {}
+        if (data) {
+          try { shifts = JSON.parse(data.shifts || '{}'); } catch (e) {}
+          try { subShifts = JSON.parse(data.sub_shifts || '{}'); } catch (e) {}
+        }
+
+        // Se o ID foi recriado mas havia turnos salvos neste mesmo mês para o mesmo nome de operador, recupera-os
+        const normName = String(op.name || '').trim().toLowerCase();
+        if (Object.keys(shifts).length === 0 && normName && monthDataByName[normName]) {
+          data = monthDataByName[normName];
+          try { shifts = JSON.parse(data.shifts || '{}'); } catch (e) {}
+          try { subShifts = JSON.parse(data.sub_shifts || '{}'); } catch (e) {}
+        }
 
         return {
           id: op.id,
@@ -116,8 +145,8 @@ export async function onRequestGet(context) {
           name: op.name || '',
           shifts,
           subShifts,
-          pimo: data.pimo || 0,
-          instrucaoMet: data.instrucao_met || 0
+          pimo: (data && data.pimo) || 0,
+          instrucaoMet: (data && data.instrucao_met) || 0
         };
       });
     } else if (year >= 2027) {
@@ -130,38 +159,33 @@ export async function onRequestGet(context) {
       isV2Independent = true;
     } else {
       // Caso 3: Meses até Dezembro de 2026 (escalas anteriores já preenchidas)
-      // Reconstrói os operadores vinculados a este mês em operator_month_data sem filtrar por active=1,
-      // garantindo que operadores excluídos em outros meses nunca sumam de escalas anteriores.
+      // Reconstrói os operadores vinculados a este mês em operator_month_data sem filtrar por active=1
       if (scheduleRecord && monthData && monthData.length > 0) {
-        const { results: joinedOps } = await db
-          .prepare(`
-            SELECT o.id, o.leg, o.name, o.sort_order,
-                   md.shifts, md.sub_shifts, md.pimo, md.instrucao_met
-            FROM operator_month_data md
-            INNER JOIN operators o ON o.id = md.operator_id
-            WHERE md.schedule_id = ?
-            ORDER BY o.sort_order ASC, o.leg ASC
-          `)
-          .bind(scheduleId)
-          .all();
+        const byNameOrId = new Map();
+        monthData.forEach(row => {
+          if (!row.op_leg && !row.op_name) return;
+          let shifts = {};
+          let subShifts = {};
+          try { shifts = JSON.parse(row.shifts || '{}'); } catch (e) {}
+          try { subShifts = JSON.parse(row.sub_shifts || '{}'); } catch (e) {}
 
-        if (joinedOps && joinedOps.length > 0) {
-          operators = joinedOps.map(row => {
-            let shifts = {};
-            let subShifts = {};
-            try { shifts = JSON.parse(row.shifts || '{}'); } catch (e) {}
-            try { subShifts = JSON.parse(row.sub_shifts || '{}'); } catch (e) {}
-            return {
-              id: row.id,
-              leg: row.leg,
-              name: row.name || '',
-              shifts,
-              subShifts,
-              pimo: row.pimo || 0,
-              instrucaoMet: row.instrucao_met || 0
-            };
-          });
-        }
+          const opEntry = {
+            id: row.operator_id,
+            leg: row.op_leg || 'A',
+            name: row.op_name || '',
+            shifts,
+            subShifts,
+            pimo: row.pimo || 0,
+            instrucaoMet: row.instrucao_met || 0
+          };
+
+          const key = opEntry.name ? opEntry.name.trim().toLowerCase() : opEntry.id;
+          const existing = byNameOrId.get(key);
+          if (!existing || (Object.keys(existing.shifts).length === 0 && Object.keys(shifts).length > 0)) {
+            byNameOrId.set(key, opEntry);
+          }
+        });
+        operators = Array.from(byNameOrId.values());
       }
 
       if (operators.length === 0) {
@@ -172,7 +196,8 @@ export async function onRequestGet(context) {
 
         if (dbOperators && dbOperators.length > 0) {
           operators = dbOperators.map(op => {
-            const data = monthDataMap[op.id] || {};
+            const normName = String(op.name || '').trim().toLowerCase();
+            const data = monthDataMap[op.id] || (normName ? monthDataByName[normName] : null) || {};
             let shifts = {};
             let subShifts = {};
             try { shifts = JSON.parse(data.shifts || '{}'); } catch (e) {}
@@ -317,9 +342,14 @@ export async function onRequestPost(context) {
       db.prepare('DELETE FROM operator_month_data WHERE schedule_id = ?').bind(scheduleId)
     ];
 
-    const stmtInsertIgnoreOp = db.prepare(`
-      INSERT OR IGNORE INTO operators (id, leg, name, sector, sort_order, active)
+    const stmtUpsertOp = db.prepare(`
+      INSERT INTO operators (id, leg, name, sector, sort_order, active)
       VALUES (?, ?, ?, ?, ?, 1)
+      ON CONFLICT(id) DO UPDATE SET
+        leg = excluded.leg,
+        name = excluded.name,
+        sort_order = excluded.sort_order,
+        active = 1
     `);
 
     const stmtUpsertMonthData = db.prepare(`
@@ -369,7 +399,7 @@ export async function onRequestPost(context) {
       const pimoVal = Math.max(0, Math.min(200, parseFloat(op.pimo || 0) || 0));
       const metVal = Math.max(0, Math.min(200, parseFloat(op.instrucaoMet || 0) || 0));
 
-      batchStatements.push(stmtInsertIgnoreOp.bind(cleanOpId, cleanLeg, cleanName, cleanSector, index + 1));
+      batchStatements.push(stmtUpsertOp.bind(cleanOpId, cleanLeg, cleanName, cleanSector, index + 1));
       batchStatements.push(stmtUpsertMonthData.bind(
         scheduleId,
         cleanOpId,

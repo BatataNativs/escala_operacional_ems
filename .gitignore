@@ -1,14 +1,12 @@
-# Arquivos locais e de controle de trabalho
-seed_operators.sql
-migration_add_column.sql
+# Arquivos locais, rascunhos e controle de trabalho
+arquivo de cálculo carga horária/
+publicacao_met/
+security_tests/
+scratch/
+*.ods
+*.xlsx
+seed_*.sql
 gerar_senha.js
-arquivo de cálculo carga horário/
-Escala - Out 2026.ods
-cartao-nota.html
-nota-de-seguranca.png
-publicacao_met/ICA_63-33.pdf
-security_tests/KipperDev-Guia-Seguranca-Vibe-Coding.pdf
-security_tests/21 Testes de segurança e requisitos.txt
 
 # Cloudflare & Wrangler
 .wrangler/
@@ -34,4 +32,3 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 .DS_Store
-.wrangler/

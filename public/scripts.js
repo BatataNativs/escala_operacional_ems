@@ -397,6 +397,22 @@
     }
   }
 
+  let currentLoadRequestId = 0;
+
+  function syncObservationsFromDom() {
+    if (!obsList || !Array.isArray(state.observations)) return;
+    const obsEls = obsList.querySelectorAll('.obs-text[data-action="edit-obs"]');
+    obsEls.forEach((el) => {
+      const idx = parseInt(el.getAttribute('data-index'), 10);
+      if (!isNaN(idx) && idx >= 0 && idx < state.observations.length) {
+        const txt = el.textContent.trim();
+        if (txt) {
+          state.observations[idx] = txt;
+        }
+      }
+    });
+  }
+
   async function syncWithCloud() {
     if (isSavingToCloud) return false;
 
@@ -405,6 +421,9 @@
       openAuthModal();
       return false;
     }
+
+    syncObservationsFromDom();
+    saveState(false);
 
     isSavingToCloud = true;
     updateSaveButtonUI('saving');
@@ -465,6 +484,7 @@
   async function loadMonthFromCloud(year, month, sector) {
     year = parseInt(year, 10);
     month = parseInt(month, 10);
+    const reqId = ++currentLoadRequestId;
     closeShiftPopover();
     closeOperatorPopover();
     selectedOpId = null;
@@ -513,12 +533,14 @@
           'Authorization': `Bearer ${currentUser.token}`
         }
       });
+      if (reqId !== currentLoadRequestId) return;
       if (res.status === 401) {
         handleSessionExpired('Sua sessão anterior expirou ou precisa ser renovada. Faça login novamente.');
         return;
       }
       if (res.ok) {
         const json = await res.json();
+        if (reqId !== currentLoadRequestId) return;
         if (json.success && json.data) {
           const key = getMonthStorageKey(year, month, sector);
           const localSaved = localStorage.getItem(key);
@@ -534,9 +556,26 @@
             } catch (e) {}
           }
 
-          // Verifica se a nuvem retornou turnos vazios, mas o navegador já possuía turnos salvos localmente (na versão v2_independent)
+          // Também verifica o backup global (STORAGE_KEY) caso pertença a este mesmo mês/ano/setor
+          let globalBackup = null;
+          try {
+            const rawGlobal = localStorage.getItem(STORAGE_KEY);
+            if (rawGlobal) {
+              const parsedGlobal = JSON.parse(rawGlobal);
+              if (
+                parsedGlobal &&
+                Number(parsedGlobal.year) === year &&
+                Number(parsedGlobal.month) === month &&
+                (parsedGlobal.sector || 'EMS-SP') === (sector || 'EMS-SP')
+              ) {
+                globalBackup = parsedGlobal;
+              }
+            }
+          } catch (e) {}
+
+          const canUseLocalRecovery = !isBlankInitPeriod(year, month) || (localState && localState.v2_independent);
           const cloudHasShifts = json.data.operators && json.data.operators.some(op => op.shifts && Object.keys(op.shifts).length > 0);
-          const localHasShifts = localState && localState.v2_independent && localState.operators && localState.operators.some(op => op.shifts && Object.keys(op.shifts).length > 0);
+          const localHasShifts = canUseLocalRecovery && localState && localState.operators && localState.operators.some(op => op.shifts && Object.keys(op.shifts).length > 0);
 
           if (!cloudHasShifts && localHasShifts) {
             // Preserva os dados locais preenchidos para não apagar a escala do usuário
@@ -556,6 +595,47 @@
             state.month = month;
             state.sector = sector;
             state.v2_independent = true;
+
+            let recoveredMissingLocalData = false;
+            const sources = [localState, globalBackup].filter(Boolean);
+            if (canUseLocalRecovery && sources.length > 0) {
+              // Se a nuvem veio com observações vazias, mas o cache local deste mês tinha observações, preserva
+              if ((!Array.isArray(state.observations) || state.observations.length === 0)) {
+                for (const src of sources) {
+                  if (Array.isArray(src.observations) && src.observations.length > 0) {
+                    state.observations = src.observations.slice();
+                    recoveredMissingLocalData = true;
+                    break;
+                  }
+                }
+              }
+
+              // Se algum operador na nuvem veio sem turnos, mas no cache local deste mês ele possuía turnos (por ID ou Nome), recupera
+              if (Array.isArray(state.operators)) {
+                state.operators.forEach(op => {
+                  const hasOpShifts = op.shifts && Object.keys(op.shifts).length > 0;
+                  if (!hasOpShifts) {
+                    const normName = String(op.name || '').trim().toLowerCase();
+                    for (const src of sources) {
+                      if (!Array.isArray(src.operators)) continue;
+                      const matchLocal = src.operators.find(lo =>
+                        (lo.id === op.id || (normName && String(lo.name || '').trim().toLowerCase() === normName)) &&
+                        lo.shifts && Object.keys(lo.shifts).length > 0
+                      );
+                      if (matchLocal) {
+                        op.shifts = { ...matchLocal.shifts };
+                        op.subShifts = { ...(matchLocal.subShifts || {}) };
+                        if (!op.pimo && matchLocal.pimo) op.pimo = matchLocal.pimo;
+                        if (!op.instrucaoMet && matchLocal.instrucaoMet) op.instrucaoMet = matchLocal.instrucaoMet;
+                        recoveredMissingLocalData = true;
+                        break;
+                      }
+                    }
+                  }
+                });
+              }
+            }
+
             if (!Array.isArray(state.customHolidays)) {
               state.customHolidays = (localState && Array.isArray(localState.customHolidays)) ? localState.customHolidays : [];
             }
@@ -565,10 +645,16 @@
             localStorage.setItem(key, JSON.stringify(state));
             baselineSavedJson = JSON.stringify(state);
             unsavedHistory = [];
-            hasUnsavedChanges = false;
-            updateSaveButtonUI('clean');
+            if (recoveredMissingLocalData) {
+              hasUnsavedChanges = true;
+              updateSaveButtonUI('pending');
+              triggerSaveIndicator('Dados recuperados do cache local', 'cloud-syncing');
+            } else {
+              hasUnsavedChanges = false;
+              updateSaveButtonUI('clean');
+              triggerSaveIndicator('☁️ Nuvem sincronizada', 'cloud-synced');
+            }
             updateUndoButtonUI();
-            triggerSaveIndicator('☁️ Nuvem sincronizada', 'cloud-synced');
           }
 
           state.lastChangeText = null;
@@ -578,8 +664,11 @@
         }
       }
     } catch (err) {
+      if (reqId !== currentLoadRequestId) return;
       console.warn('Não foi possível carregar da nuvem, usando cache local:', err);
     }
+
+    if (reqId !== currentLoadRequestId) return;
 
     // Fallback: se não conseguiu carregar da nuvem, tenta o cache local daquele mês
     const key = getMonthStorageKey(year, month, sector);
@@ -3677,6 +3766,18 @@ function openExtraHoursModal() {
     }
 
     // 11. Seção de Observações
+    obsList.addEventListener('input', (e) => {
+      const el = e.target;
+      if (el && el.getAttribute && el.getAttribute('data-action') === 'edit-obs') {
+        const index = parseInt(el.getAttribute('data-index'), 10);
+        const newText = el.textContent.trim();
+        if (!isNaN(index) && state.observations[index] !== newText) {
+          state.observations[index] = newText;
+          saveState();
+        }
+      }
+    });
+
     obsList.addEventListener('blur', (e) => {
       const el = e.target;
       if (el.getAttribute('data-action') === 'edit-obs') {

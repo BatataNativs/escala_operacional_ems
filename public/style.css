@@ -281,6 +281,7 @@ body.dark-theme .btn-theme .icon-moon {
   border: 1px solid var(--input-border);
   background: var(--input-bg);
   padding: 6px 10px;
+  font-family: "Segoe UI";
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--text-main);
@@ -383,7 +384,6 @@ body.dark-theme .btn-go-today:hover:not(:disabled) {
   display: flex;
   flex-direction: column;
   border-left: 1px solid var(--input-border);
-  background: var(--input-bg);
   border-top-right-radius: var(--radius-sm);
   border-bottom-right-radius: var(--radius-sm);
   overflow: hidden;
@@ -392,7 +392,7 @@ body.dark-theme .btn-go-today:hover:not(:disabled) {
 
 .stepper-arrow {
   flex: 1;
-  background: transparent;
+  background: #112acd;
   border: none;
   padding: 0;
   margin: 0;
@@ -401,7 +401,7 @@ body.dark-theme .btn-go-today:hover:not(:disabled) {
   justify-content: center;
   font-size: 7px;
   line-height: 1;
-  color: var(--text-muted);
+  color: #ffffff;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
   user-select: none;
@@ -409,7 +409,7 @@ body.dark-theme .btn-go-today:hover:not(:disabled) {
 
 .stepper-arrow:hover {
   background: rgba(0, 0, 0, 0.08);
-  color: var(--primary);
+  color: black;
 }
 
 body.dark-theme .stepper-arrow:hover {
@@ -427,8 +427,10 @@ body.dark-theme .stepper-arrow:hover {
 }
 
 .sector-input {
-  width: 100px;
+  width: 80px;
   font-weight: 700;
+  background-color: #112acd;
+  color: #ffffff;
   text-align: center;
   text-transform: uppercase;
 }
@@ -2959,7 +2961,7 @@ body.dark-theme .extra-hours-table tbody tr:hover {
   }
 
   .sector-input {
-    width: 85px;
+    width: 80px;
   }
 
   .header-right {

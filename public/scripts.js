@@ -929,26 +929,63 @@
     }
   }
 
-  // Verifica se há turnos lançados no mês e quais dias possuem cobertura M e T (ICA 63-33, item 4.2.2.1)
+  // Verifica duplicidades de turnos no mesmo dia e cobertura M e T (ICA 63-33, item 4.2.2.1)
   function getDayCoverageInfo(dayNumber) {
     const ops = state.operators || [];
     const monthHasAnyShift = ops.some(o => o.shifts && Object.keys(o.shifts).length > 0);
     if (!monthHasAnyShift) {
-      return { incomplete: false, missingText: '' };
+      return { incomplete: false, hasConflict: false, missingText: '', conflictText: '', duplicateMap: {} };
     }
-    let hasM = false;
-    let hasT = false;
+
+    const shiftMap = {}; // code -> [{ id, name }]
     ops.forEach(o => {
       const v = (o.shifts && o.shifts[dayNumber]) ? o.shifts[dayNumber].trim().toUpperCase() : '';
-      if (v === 'M') hasM = true;
-      if (v === 'T') hasT = true;
+      if (v) {
+        if (!shiftMap[v]) shiftMap[v] = [];
+        shiftMap[v].push({
+          id: o.id,
+          name: o.name ? o.name.trim() : (o.leg || 'Operador')
+        });
+      }
     });
+
+    // 1. Conflito: detecção de turnos operacionais iguais no mesmo dia (M, T, R)
+    const duplicateShifts = [];
+    const duplicateMap = {}; // code -> array de opIds
+    for (const [code, list] of Object.entries(shiftMap)) {
+      if (list.length > 1) {
+        duplicateShifts.push({
+          shift: code,
+          count: list.length,
+          names: list.map(item => item.name)
+        });
+        duplicateMap[code] = list.map(item => item.id);
+      }
+    }
+
+    const hasConflict = duplicateShifts.length > 0;
+    const conflictText = hasConflict
+      ? duplicateShifts.map(d => `⚠️ Conflito no dia ${dayNumber}: Turno ${d.shift} duplicado (${d.count} operadores: ${d.names.join(', ')})`).join(' • ')
+      : '';
+
+    // 2. Cobertura: falta escalar M ou T
+    const hasM = (shiftMap['M'] && shiftMap['M'].length > 0) || (shiftMap['R'] && shiftMap['R'].length > 0);
+    const hasT = (shiftMap['T'] && shiftMap['T'].length > 0) || (shiftMap['R'] && shiftMap['R'].length > 0);
     const missing = [];
     if (!hasM) missing.push('M (Manhã)');
     if (!hasT) missing.push('T (Tarde)');
+
+    const incomplete = missing.length > 0;
+    const missingText = incomplete
+      ? `Cobertura H17 pendente no dia ${dayNumber}: falta escalar turno ${missing.join(' e ')} (ICA 63-33, item 4.2.2.1)`
+      : '';
+
     return {
-      incomplete: missing.length > 0,
-      missingText: missing.length > 0 ? `Cobertura H17 pendente no dia ${dayNumber}: falta escalar turno ${missing.join(' e ')} (ICA 63-33, item 4.2.2.1)` : ''
+      incomplete,
+      hasConflict,
+      missingText,
+      conflictText,
+      duplicateMap
     };
   }
 
@@ -959,9 +996,11 @@
       const th = thead.querySelector(`th.cell-day-num[data-header-day="${d.dayNumber}"]`);
       if (!th) return;
       const cov = getDayCoverageInfo(d.dayNumber);
-      th.classList.toggle('day-coverage-incomplete', cov.incomplete);
+      th.classList.toggle('day-coverage-conflict', cov.hasConflict);
+      th.classList.toggle('day-coverage-incomplete', cov.incomplete && !cov.hasConflict);
+
       const baseHolidayTitle = d.isHoliday ? `Feriado: ${d.holidayName} (${d.holidayType}) - Dia não útil` : '';
-      const combinedTitle = [baseHolidayTitle, cov.missingText].filter(Boolean).join(' • ');
+      const combinedTitle = [cov.conflictText, baseHolidayTitle, cov.missingText].filter(Boolean).join(' • ');
       if (combinedTitle) {
         th.setAttribute('title', combinedTitle);
       } else {
@@ -970,7 +1009,7 @@
     });
   }
 
-    function renderHeader() {
+  function renderHeader() {
     const daysInfo = getMonthDaysInfo(state.year, state.month);
     const monthShort = MONTH_NAMES[state.month];
 
@@ -1008,11 +1047,12 @@
       const weekendClass = d.isWeekend ? ' col-weekend' : '';
       const holidayClass = d.isHoliday ? ' col-holiday' : '';
       const cov = getDayCoverageInfo(d.dayNumber);
-      const covClass = cov.incomplete ? ' day-coverage-incomplete' : '';
+      const conflictClass = cov.hasConflict ? ' day-coverage-conflict' : '';
+      const covClass = (cov.incomplete && !cov.hasConflict) ? ' day-coverage-incomplete' : '';
       const baseHolidayTitle = d.isHoliday ? `Feriado: ${d.holidayName} (${d.holidayType}) - Dia não útil` : '';
-      const combinedTitle = [baseHolidayTitle, cov.missingText].filter(Boolean).join(' • ');
+      const combinedTitle = [cov.conflictText, baseHolidayTitle, cov.missingText].filter(Boolean).join(' • ');
       const titleAttr = combinedTitle ? ` title="${escapeHtml(combinedTitle)}"` : '';
-      tr2 += `<th class="cell-day-num col-day${weekendClass}${holidayClass}${todayClass}${covClass}" data-header-day="${d.dayNumber}"${titleAttr}>${d.dayNumber}</th>`;
+      tr2 += `<th class="cell-day-num col-day${weekendClass}${holidayClass}${todayClass}${conflictClass}${covClass}" data-header-day="${d.dayNumber}"${titleAttr}>${d.dayNumber}</th>`;
     });
     tr2 += `</tr>`;
 
@@ -1157,6 +1197,42 @@
     return map;
   }
 
+  // Atualiza em tempo real as células de todos os operadores para um dia específico (duplicidades de turno)
+  function refreshDayCells(dayNumber) {
+    if (!tbody) return;
+    const cov = getDayCoverageInfo(dayNumber);
+    const ops = state.operators || [];
+
+    ops.forEach(op => {
+      const td = tbody.querySelector(`[data-op-id="${op.id}"] [data-day="${dayNumber}"]`);
+      if (!td) return;
+      const val = (op.shifts && op.shifts[dayNumber]) ? op.shifts[dayNumber].trim().toUpperCase() : '';
+
+      const isDuplicate = !!(val && cov.duplicateMap && cov.duplicateMap[val] && cov.duplicateMap[val].includes(op.id));
+      td.classList.toggle('cell-shift-duplicate', isDuplicate);
+
+      let cellTitle = td.getAttribute('title') || '';
+      // Remove aviso prévio de duplicidade se houver
+      cellTitle = cellTitle.replace(/⚠️ Conflito no dia \d+: Turno [^•]+( • )?/g, '').trim();
+
+      if (isDuplicate) {
+        const otherNames = ops
+          .filter(o => o.id !== op.id && cov.duplicateMap[val].includes(o.id))
+          .map(o => o.name ? o.name.trim() : (o.leg || 'Operador'));
+        const dupTitle = `⚠️ Conflito no dia ${dayNumber}: Turno ${val} duplicado (escalado também para ${otherNames.join(', ')})`;
+        cellTitle = cellTitle ? `${dupTitle} • ${cellTitle}` : dupTitle;
+      }
+
+      if (cellTitle) {
+        td.setAttribute('title', cellTitle);
+      } else {
+        td.removeAttribute('title');
+      }
+    });
+
+    refreshHeaderCoverageIndicators();
+  }
+
   // Atualiza em tempo real as células da linha do operador (streaks de folga e conflito)
   function refreshOperatorRowCells(opId) {
     const op = state.operators.find(o => o.id === opId);
@@ -1175,21 +1251,31 @@
       td.textContent = val;
       td.setAttribute('data-val', val);
 
-      td.classList.remove('streak-off-start', 'streak-off-mid', 'streak-off-end', 'cell-conflict-rm');
+      td.classList.remove('streak-off-start', 'streak-off-mid', 'streak-off-end', 'cell-conflict-rm', 'cell-shift-duplicate');
 
       let cellTitle = '';
+      const cov = getDayCoverageInfo(d.dayNumber);
+      if (val && cov.duplicateMap && cov.duplicateMap[val] && cov.duplicateMap[val].includes(op.id)) {
+        td.classList.add('cell-shift-duplicate');
+        const otherNames = (state.operators || [])
+          .filter(o => o.id !== op.id && cov.duplicateMap[val].includes(o.id))
+          .map(o => o.name ? o.name.trim() : (o.leg || 'Operador'));
+        cellTitle = `⚠️ Conflito no dia ${d.dayNumber}: Turno ${val} duplicado (escalado também para ${otherNames.join(', ')})`;
+      }
+
       const offInfo = offMap[d.dayNumber];
       if (offInfo) {
         if (offInfo.type === 'start') td.classList.add('streak-off-start');
         else if (offInfo.type === 'end') td.classList.add('streak-off-end');
         else td.classList.add('streak-off-mid');
-        cellTitle = `Período com ${offInfo.length} dias consecutivos sem escala operacional (ICA 63-33, item 8.4.5.1)`;
+        const offMsg = `Período com ${offInfo.length} dias consecutivos sem escala operacional (ICA 63-33, item 8.4.5.1)`;
+        cellTitle = cellTitle ? `${cellTitle} • ${offMsg}` : offMsg;
       }
 
       const conflictInfo = conflictMap[d.dayNumber];
       if (conflictInfo) {
         td.classList.add('cell-conflict-rm');
-        cellTitle = conflictInfo.message;
+        cellTitle = cellTitle ? `${cellTitle} • ${conflictInfo.message}` : conflictInfo.message;
       }
 
       if (cellTitle) {
@@ -1244,6 +1330,12 @@
     const today = new Date();
     const isCurrentYearMonth = today.getFullYear() === state.year && today.getMonth() === state.month;
     const currentDay = today.getDate();
+
+    // Mapeamento prévio de cobertura e duplicidades do mês
+    const monthCoverageMap = {};
+    daysInfo.forEach(d => {
+      monthCoverageMap[d.dayNumber] = getDayCoverageInfo(d.dayNumber);
+    });
 
     let html = '';
 
@@ -1300,7 +1392,7 @@
       const offMap = getConsecutiveOffDaysMap(op, daysInfo);
       const conflictMap = getOperatorConflictsMap(op, daysInfo);
 
-            daysInfo.forEach(d => {
+      daysInfo.forEach(d => {
         const val = (op.shifts && op.shifts[d.dayNumber]) || '';
         const weekendClass = d.isWeekend ? ' col-weekend' : '';
         const holidayClass = d.isHoliday ? ' col-holiday' : '';
@@ -1323,11 +1415,22 @@
           cellTitle = conflictInfo.message;
         }
 
+        let duplicateClass = '';
+        const cov = monthCoverageMap[d.dayNumber];
+        if (val && cov && cov.duplicateMap && cov.duplicateMap[val] && cov.duplicateMap[val].includes(op.id)) {
+          duplicateClass = ' cell-shift-duplicate';
+          const otherNames = (state.operators || [])
+            .filter(o => o.id !== op.id && cov.duplicateMap[val].includes(o.id))
+            .map(o => o.name ? o.name.trim() : (o.leg || 'Operador'));
+          const dupTitle = `⚠️ Conflito no dia ${d.dayNumber}: Turno ${val} duplicado (escalado também para ${otherNames.join(', ')})`;
+          cellTitle = cellTitle ? `${dupTitle} • ${cellTitle}` : dupTitle;
+        }
+
         if (!cellTitle && d.isHoliday) {
           cellTitle = `Dia ${d.dayNumber}/${state.month + 1} - Feriado: ${d.holidayName} (${d.holidayType}) - Não útil / Etapa integral`;
         }
 
-        html += `<td class="cell-shift col-day${weekendClass}${holidayClass}${todayClass}${streakClass}${conflictClass}" 
+        html += `<td class="cell-shift col-day${weekendClass}${holidayClass}${todayClass}${streakClass}${conflictClass}${duplicateClass}" 
                     tabindex="${currentMode === 'edit' ? 0 : -1}" 
                     data-val="${escapeHtml(val)}" 
                     data-op-id="${safeOpId}" 
@@ -2697,6 +2800,9 @@ function openExtraHoursModal() {
 
     // Atualiza dinamicamente as células da linha (inclusive streaks de folga e conflitos)
     refreshOperatorRowCells(opId);
+
+    // Atualiza em tempo real a coluna inteira do dia (duplicidades de turnos entre operadores)
+    refreshDayCells(day);
 
     // Recalcula e atualiza instantaneamente a tabela de Carga Horária & Etapas
     renderStatsTable();

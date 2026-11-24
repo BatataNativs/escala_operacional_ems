@@ -904,41 +904,38 @@
     return days;
   }
 
-  // Centraliza a rolagem horizontal no dia atual em telas menores / celulares (quando há barra de rolagem)
-  function scrollToTodayColumn(smooth = true) {
-    const now = new Date();
-    const isCurrent = Number(state.year) === now.getFullYear() && Number(state.month) === now.getMonth();
-    if (!isCurrent) return;
+  // Alinha a rolagem horizontal no início da coluna do dia atual em telas menores / celulares
+function scrollToTodayColumn(smooth = true) {
+  const now = new Date();
+  const isCurrent = Number(state.year) === now.getFullYear() && Number(state.month) === now.getMonth();
+  if (!isCurrent) return;
 
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        const tableWrapper = document.querySelector('.table-wrapper');
-        const todayHeader = thead ? thead.querySelector('th.cell-day-num.col-today, th.col-today') : null;
-        if (!tableWrapper || !todayHeader) return;
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      const tableWrapper = document.querySelector('.table-wrapper');
+      const todayHeader = thead ? thead.querySelector('th.cell-day-num.col-today, th.col-today') : null;
+      if (!tableWrapper || !todayHeader) return;
 
-        // Se a tabela inteira couber na tela sem rolagem (como em monitores de PC), não altera o scroll
-        if (tableWrapper.scrollWidth <= tableWrapper.clientWidth) {
-          return;
-        }
+      // Se a tabela inteira couber na tela sem rolagem, não altera o scroll
+      if (tableWrapper.scrollWidth <= tableWrapper.clientWidth) {
+        return;
+      }
 
-        // Mede a largura ocupada pelas colunas fixas à esquerda (Leg. e Operadores)
-        const stickyOpName = thead.querySelector('th.col-name');
-        const stickyWidth = stickyOpName ? (stickyOpName.offsetLeft + stickyOpName.offsetWidth) : 0;
+      // Mede a largura ocupada pelas colunas fixas à esquerda (Leg. e Operadores)
+      const stickyOpName = thead.querySelector('th.col-name');
+      const stickyWidth = stickyOpName ? (stickyOpName.offsetLeft + stickyOpName.offsetWidth) : 0;
 
-        // Posição da coluna de hoje e cálculo do centro da área visível livre
-        const headerLeft = todayHeader.offsetLeft;
-        const headerWidth = todayHeader.offsetWidth;
-        const visibleAreaWidth = tableWrapper.clientWidth - stickyWidth;
+      // Alinha o início da coluna de hoje logo após as colunas fixas dos operadores
+      const headerLeft = todayHeader.offsetLeft;
+      const targetScrollLeft = Math.max(0, headerLeft - stickyWidth);
 
-        const targetScrollLeft = Math.max(0, headerLeft - stickyWidth - (visibleAreaWidth / 2) + (headerWidth / 2));
-
-        tableWrapper.scrollTo({
-          left: targetScrollLeft,
-          behavior: smooth ? 'smooth' : 'auto'
-        });
-      }, 60);
-    });
-  }
+      tableWrapper.scrollTo({
+        left: targetScrollLeft,
+        behavior: smooth ? 'smooth' : 'auto'
+      });
+    }, 60);
+  });
+}
 
   function renderAll() {
     syncHeaderControls();

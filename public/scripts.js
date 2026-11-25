@@ -905,37 +905,46 @@
   }
 
   // Alinha a rolagem horizontal no início da coluna do dia atual em telas menores / celulares
-function scrollToTodayColumn(smooth = true) {
-  const now = new Date();
-  const isCurrent = Number(state.year) === now.getFullYear() && Number(state.month) === now.getMonth();
-  if (!isCurrent) return;
+  let scrollToTodayTimer = null;
+  function scrollToTodayColumn(smooth = true) {
+    const now = new Date();
+    const isCurrent = Number(state.year) === now.getFullYear() && Number(state.month) === now.getMonth();
+    if (!isCurrent) return;
 
-  requestAnimationFrame(() => {
-    setTimeout(() => {
-      const tableWrapper = document.querySelector('.table-wrapper');
-      const todayHeader = thead ? thead.querySelector('th.cell-day-num.col-today, th.col-today') : null;
-      if (!tableWrapper || !todayHeader) return;
+    if (scrollToTodayTimer) {
+      clearTimeout(scrollToTodayTimer);
+    }
 
-      // Se a tabela inteira couber na tela sem rolagem, não altera o scroll
-      if (tableWrapper.scrollWidth <= tableWrapper.clientWidth) {
-        return;
-      }
+    requestAnimationFrame(() => {
+      scrollToTodayTimer = setTimeout(() => {
+        scrollToTodayTimer = null;
+        const tableWrapper = document.querySelector('.table-wrapper');
+        const todayHeader = thead ? thead.querySelector('th.cell-day-num.col-today, th.col-today') : null;
+        if (!tableWrapper || !todayHeader) return;
 
-      // Mede a largura ocupada pelas colunas fixas à esquerda (Leg. e Operadores)
-      const stickyOpName = thead.querySelector('th.col-name');
-      const stickyWidth = stickyOpName ? (stickyOpName.offsetLeft + stickyOpName.offsetWidth) : 0;
+        // Se a tabela inteira couber na tela sem rolagem (ex: PC), não altera o scroll
+        if (tableWrapper.scrollWidth <= tableWrapper.clientWidth) {
+          return;
+        }
 
-      // Alinha o início da coluna de hoje logo após as colunas fixas dos operadores
-      const headerLeft = todayHeader.offsetLeft;
-      const targetScrollLeft = Math.max(0, headerLeft - stickyWidth);
+        // Usa a posição fixa do dia 1 (não-sticky) como referência para evitar distorção do offsetLeft em elementos sticky já rolados
+        const firstDayHeader = thead.querySelector('th.cell-day-num[data-header-day="1"]');
+        const stickyLeg = thead.querySelector('th.col-leg');
+        const stickyOpName = thead.querySelector('th.col-name');
+        const baseLeft = firstDayHeader
+          ? firstDayHeader.offsetLeft
+          : ((stickyLeg ? stickyLeg.offsetWidth : 0) + (stickyOpName ? stickyOpName.offsetWidth : 0));
 
-      tableWrapper.scrollTo({
-        left: targetScrollLeft,
-        behavior: smooth ? 'smooth' : 'auto'
-      });
-    }, 60);
-  });
-}
+        // Alinha o início da coluna de hoje logo após as colunas fixas dos operadores
+        const targetScrollLeft = Math.max(0, todayHeader.offsetLeft - baseLeft);
+
+        tableWrapper.scrollTo({
+          left: targetScrollLeft,
+          behavior: smooth ? 'smooth' : 'auto'
+        });
+      }, 60);
+    });
+  }
 
   function renderAll() {
     syncHeaderControls();

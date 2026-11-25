@@ -3229,14 +3229,19 @@ body.dark-theme .extra-hours-table tbody tr:hover {
   .action-buttons {
     width: 100%;
     flex-wrap: wrap;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 6px;
+  }
+
+  .action-buttons .user-auth-group {
+    display: contents;
   }
 
   .action-buttons .btn {
     padding: 6px 10px;
     font-size: 0.78rem;
-    flex: 1 1 auto;
+    flex: 0 1 auto;
+    max-width: 100%;
     justify-content: center;
   }
 
